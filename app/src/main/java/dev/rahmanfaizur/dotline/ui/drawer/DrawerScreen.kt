@@ -86,6 +86,21 @@ import androidx.compose.ui.layout.ContentScale
 import dev.rahmanfaizur.dotline.data.DrawerBackground
 import dev.rahmanfaizur.dotline.ui.common.Backdrop
 import kotlinx.coroutines.launch
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 
 /**
  * All apps. Empty search: A–Z grid with a big letter for the section you're in and a
@@ -109,7 +124,7 @@ fun DrawerScreen(
     val results = remember(apps, query) { AppIndex.search(apps, query) { it.label } }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    val pullToClose = rememberPullToClose(onClose)
+    val pull = rememberPullToClose(onClose)
 
     LaunchedEffect(focusSearch) {
         if (focusSearch) {
@@ -118,7 +133,17 @@ fun DrawerScreen(
         }
     }
 
-    Box(modifier.fillMaxSize().testTag("drawer")) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .onSizeChanged { pull.height = it.height.toFloat() }
+            // Read in the draw phase only, so following the finger never recomposes the list.
+            .graphicsLayer {
+                translationY = pull.offset
+                alpha = 1f - (pull.offset / pull.height.coerceAtLeast(1f)).coerceIn(0f, 1f) * 0.6f
+            }
+            .testTag("drawer"),
+    ) {
     DrawerGround(bg, backdrop)
     Column(
         Modifier
@@ -129,6 +154,8 @@ fun DrawerScreen(
             .imePadding()
             .padding(horizontal = 16.dp),
     ) {
+        // The top part (search + big letter) can be dragged down to close too.
+        Column(Modifier.draggable(pull.headerDrag, Orientation.Vertical, onDragStopped = { v -> pull.settle(v) })) {
         Spacer(Modifier.height(12.dp))
         SearchField(
             query = query,
@@ -138,10 +165,11 @@ fun DrawerScreen(
             glassy = glassy,
         )
         Spacer(Modifier.height(12.dp))
+        }
         if (query.isBlank()) {
-            AlphabetGrid(apps, actions, Modifier.weight(1f).nestedScroll(pullToClose))
+            AlphabetGrid(apps, actions, Modifier.weight(1f).nestedScroll(pull.connection), pull)
         } else {
-            SearchResults(results, actions, Modifier.weight(1f).nestedScroll(pullToClose), glassy)
+            SearchResults(results, actions, Modifier.weight(1f).nestedScroll(pull.connection), glassy)
         }
     }
     }
@@ -187,40 +215,71 @@ private fun DrawerGround(bg: DrawerBackground, backdrop: Backdrop?) {
 }
 
 /**
- * Pulling down past the top of the list closes the drawer; any scroll hides the keyboard
- * so it never covers the apps you're looking at.
+ * Pull-to-close. Once the list is at the top, pulling further moves the whole drawer down
+ * with your finger; let go past a quarter of the screen (or flick down) and it slides away,
+ * otherwise it springs back. Any scroll also hides the keyboard.
  */
-@Composable
-private fun rememberPullToClose(onClose: () -> Unit): NestedScrollConnection {
-    val focus = LocalFocusManager.current
-    val close by rememberUpdatedState(onClose)
-    return remember {
-        object : NestedScrollConnection {
-            var pulled = 0f
+@Stable
+private class PullToClose(
+    private val scope: CoroutineScope,
+    private val focus: FocusManager,
+    private val close: State<() -> Unit>,
+) {
+    var offset by mutableFloatStateOf(0f)
+    var height = 1f
 
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && abs(available.y) > 1f) focus.clearFocus()
-                return Offset.Zero
-            }
+    private var settling: Job? = null
 
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput) {
-                    if (available.y > 0f) {
-                        pulled += available.y
-                        if (pulled > 180f) { pulled = 0f; close() }
-                    } else if (consumed.y != 0f) {
-                        pulled = 0f
-                    }
-                }
-                return Offset.Zero
-            }
+    private fun dragBy(dy: Float): Float {
+        val before = offset
+        offset = (offset + dy).coerceAtLeast(0f)
+        return offset - before
+    }
 
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                pulled = 0f
-                return Velocity.Zero
-            }
+    /** Animates to closed or back open, from the finger's last speed (px/s, down is positive). */
+    fun settle(velocityY: Float) {
+        if (offset <= 0f) return
+        val shut = offset > height * 0.25f || velocityY > 1800f
+        settling?.cancel()
+        settling = scope.launch {
+            animate(offset, if (shut) height else 0f, velocityY, spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> offset = v }
+            if (shut) close.value()
         }
     }
+
+    val headerDrag = DraggableState { dy -> settling?.cancel(); dragBy(dy) }
+
+    val connection = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (source != NestedScrollSource.UserInput) return Offset.Zero
+            if (abs(available.y) > 1f) focus.clearFocus()
+            // Dragging back up first un-pulls the drawer before the list scrolls again.
+            if (offset > 0f && available.y < 0f) return Offset(0f, dragBy(available.y))
+            return Offset.Zero
+        }
+
+        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            if (source == NestedScrollSource.UserInput && available.y > 0f) {
+                settling?.cancel()
+                return Offset(0f, dragBy(available.y))
+            }
+            return Offset.Zero
+        }
+
+        override suspend fun onPreFling(available: Velocity): Velocity {
+            if (offset <= 0f) return Velocity.Zero
+            settle(available.y)
+            return available // the drawer takes the fling; the list stays put
+        }
+    }
+}
+
+@Composable
+private fun rememberPullToClose(onClose: () -> Unit): PullToClose {
+    val focus = LocalFocusManager.current
+    val close = rememberUpdatedState(onClose)
+    val scope = rememberCoroutineScope()
+    return remember { PullToClose(scope, focus, close) }
 }
 
 @Composable
@@ -277,7 +336,7 @@ private fun SearchField(
 /** One continuous A–Z grid; the big letter tells you which section you're in. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Modifier) {
+private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Modifier, pull: PullToClose) {
     val accent = LocalAccent.current
     val sections = remember(apps) { AppIndex.sections(apps) { it.label } }
     val ordered = remember(sections) { sections.flatMap { it.items } }
@@ -298,50 +357,59 @@ private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Mo
     val current = scrubbing ?: scrolledTo
 
     Column(modifier) {
-        BasicText(current.toString(), style = Dot.dots(84, accent), modifier = Modifier.padding(bottom = 4.dp).testTag("sectionLetter"))
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
-            state = gridState,
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            items(ordered.size, key = { ordered[it].key }) { i -> AppCell(ordered[i], actions) }
-        }
-
-        LetterStrip(
-            letters = remember(sections) { sections.map { it.letter } },
-            current = current,
-            onPick = { letter -> firstIndex[letter]?.let { scope.launch { gridState.scrollToItem(it) } } },
-            onScrub = { scrubbing = it },
+        BasicText(
+            current.toString(),
+            style = Dot.dots(84, accent),
+            modifier = Modifier
+                .padding(bottom = 4.dp)
+                .draggable(pull.headerDrag, Orientation.Vertical, onDragStopped = { v -> pull.settle(v) })
+                .testTag("sectionLetter"),
         )
+
+        Row(Modifier.weight(1f)) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                state = gridState,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                items(ordered.size, key = { ordered[it].key }) { i -> AppCell(ordered[i], actions) }
+            }
+
+            LetterRail(
+                letters = remember(sections) { sections.map { it.letter } },
+                current = current,
+                onPick = { letter -> firstIndex[letter]?.let { scope.launch { gridState.scrollToItem(it) } } },
+                onScrub = { scrubbing = it },
+            )
+        }
     }
 }
 
 /**
- * A–Z jump strip. Tap a letter, or keep your finger down and slide: the list follows
- * the letter under your finger, with a light tick each time it changes.
+ * A–Z down the right edge. Tap a letter, or keep your finger on the rail and slide: the list
+ * follows the letter under your finger, with a light tick each time it changes.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LetterStrip(letters: List<Char>, current: Char, onPick: (Char) -> Unit, onScrub: (Char?) -> Unit) {
+private fun LetterRail(letters: List<Char>, current: Char, onPick: (Char) -> Unit, onScrub: (Char?) -> Unit) {
     val accent = LocalAccent.current
     val haptics = LocalHapticFeedback.current
     val pick by rememberUpdatedState(onPick)
     val scrub by rememberUpdatedState(onScrub)
-    // Centre of each letter inside the strip; plain map, so layout doesn't recompose anything.
-    val centers = remember(letters) { HashMap<Char, Offset>() }
+    // Vertical centre of each letter; a plain map, so layout doesn't recompose anything.
+    val centers = remember(letters) { HashMap<Char, Float>() }
 
-    FlowRow(
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxHeight()
+            .width(26.dp)
             .testTag("letterStrip")
             .pointerInput(letters) {
                 awaitEachGesture {
                     var last: Char? = null
-                    fun under(p: Offset) {
-                        val letter = centers.minByOrNull { (it.value - p).getDistanceSquared() }?.key ?: return
+                    fun under(y: Float) {
+                        val letter = centers.minByOrNull { abs(it.value - y) }?.key ?: return
                         if (letter != last) {
                             last = letter
                             haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -351,36 +419,38 @@ private fun LetterStrip(letters: List<Char>, current: Char, onPick: (Char) -> Un
                     }
                     val down = awaitFirstDown()
                     down.consume()
-                    under(down.position)
+                    under(down.position.y)
                     try {
                         while (true) {
                             val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                             if (!change.pressed) break
                             change.consume()
-                            under(change.position)
+                            under(change.position.y)
                         }
                     } finally {
                         scrub(null)
                     }
                 }
             }
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         letters.forEach { letter ->
+            val on = letter == current
             BasicText(
                 letter.toString(),
-                style = Dot.caption.copy(color = if (letter == current) accent else Dot.Faint, fontSize = 13.sp, textAlign = TextAlign.Center),
+                style = Dot.caption.copy(
+                    color = if (on) accent else Dot.Muted,
+                    fontSize = if (on) 13.sp else 11.sp,
+                    textAlign = TextAlign.Center,
+                ),
                 modifier = Modifier
-                    .width(24.dp)
-                    .onGloballyPositioned {
-                        centers[letter] = it.positionInParent() + Offset(it.size.width / 2f, it.size.height / 2f)
-                    }
+                    .onGloballyPositioned { centers[letter] = it.positionInParent().y + it.size.height / 2f }
                     .semantics {
                         role = Role.Button
                         onClick(label = "Jump to $letter") { pick(letter); true }
-                    }
-                    .padding(vertical = 6.dp),
+                    },
             )
         }
     }

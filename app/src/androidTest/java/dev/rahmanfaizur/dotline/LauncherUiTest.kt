@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -135,11 +136,11 @@ class LauncherUiTest {
         rule.onNodeWithTag("home").performTouchInput { swipeUp() }
         rule.onNodeWithTag("drawer").assertIsDisplayed()
         val first = sectionLetter()
-        // Finger down on the first letter, slide across and down to the last row (still holding).
+        // Finger down on the top letter of the rail, slide to the bottom (still holding).
         rule.onNodeWithTag("letterStrip").performTouchInput {
-            down(Offset(30f, 30f))
-            moveTo(Offset(width / 2f, 30f))
-            moveTo(Offset(width - 30f, height - 30f))
+            down(Offset(width / 2f, 12f))
+            moveTo(Offset(width / 2f, height / 2f))
+            moveTo(Offset(width / 2f, height - 12f))
         }
         rule.waitForIdle()
         assertNotEquals(first, sectionLetter())
@@ -194,5 +195,12 @@ class LauncherUiTest {
         rule.waitUntil(5_000) {
             rule.onAllNodes(hasTestTag("ramTile") and hasText(" of ", substring = true, ignoreCase = true)).fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    @Test fun pullingDownClosesAllApps() {
+        rule.onNodeWithTag("home").performTouchInput { swipeUp() }
+        rule.onNodeWithTag("drawer").assertIsDisplayed()
+        rule.onNodeWithTag("sectionLetter").performTouchInput { swipeDown(startY = 0f, endY = 900f, durationMillis = 250) }
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("drawer").fetchSemanticsNodes().isEmpty() }
     }
 }
