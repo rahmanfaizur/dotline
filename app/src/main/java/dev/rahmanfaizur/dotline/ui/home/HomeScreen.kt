@@ -61,6 +61,9 @@ class AppActions(
     val longPress: (AppEntry) -> Unit,
 )
 
+/** Shown on home until Dotline is the default launcher or the user taps "Not now". */
+class SetHomePrompt(val set: () -> Unit, val notNow: () -> Unit)
+
 /**
  * Bento home: clock tile, battery + alarm tiles, four app tiles, search pill and dock.
  * Swipe up or tap search for all apps; long-press empty space for settings.
@@ -72,6 +75,7 @@ fun HomeScreen(
     onOpenApps: (withSearch: Boolean) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    setHome: SetHomePrompt? = null,
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -105,6 +109,8 @@ fun HomeScreen(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (setHome != null) SetHomeTile(setHome, accent)
+
         // Clock
         Tile(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -196,5 +202,39 @@ private fun AppTile(app: AppEntry, actions: AppActions, modifier: Modifier) {
 private fun DockIcon(app: AppEntry, actions: AppActions) {
     Box(Modifier.appClicks(app, actions).padding(4.dp)) {
         AppIcon(app, 48.dp)
+    }
+}
+
+@Composable
+private fun SetHomeTile(prompt: SetHomePrompt, accent: androidx.compose.ui.graphics.Color) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Dot.Surface, TileShape)
+            .testTag("setHomeTile")
+            .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AccentDot(accent)
+        Gap(10.dp)
+        BasicText(
+            "Make Dotline your home screen",
+            style = Dot.label.copy(fontSize = 13.sp),
+            modifier = Modifier.weight(1f),
+        )
+        BasicText(
+            "Not now",
+            style = Dot.label.copy(color = Dot.Muted, fontSize = 13.sp),
+            modifier = Modifier.clickable(onClick = prompt.notNow).testTag("notNow").padding(horizontal = 8.dp, vertical = 8.dp),
+        )
+        BasicText(
+            "Set",
+            style = Dot.label.copy(color = Dot.Black, fontSize = 13.sp),
+            modifier = Modifier
+                .background(accent, RoundedCornerShape(50))
+                .clickable(onClick = prompt.set)
+                .testTag("setHome")
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
     }
 }

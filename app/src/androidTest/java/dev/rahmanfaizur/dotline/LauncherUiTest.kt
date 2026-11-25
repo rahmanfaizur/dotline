@@ -16,13 +16,19 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertFalse
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * Drives the real launcher on a device or emulator.
- * Relies on Chrome being installed, which it is on every Google emulator image.
+ * Relies on Chrome being installed, which it is on every Google emulator image, and on
+ * the debug build not being the default home app (so the set-home tile shows).
  */
 @RunWith(AndroidJUnit4::class)
 class LauncherUiTest {
@@ -31,6 +37,13 @@ class LauncherUiTest {
 
     /** An app row inside the drawer (the same app may also be a tile on the home screen underneath). */
     private fun inDrawer(text: String) = rule.onNode(hasText(text) and hasAnyAncestor(hasTestTag("drawer")))
+
+    private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as DotlineApp
+
+    /** Every test starts with the set-home tile not dismissed, and leaves it that way. */
+    @Before @After fun resetHomePrompt() {
+        runBlocking { app.settings.setHomePromptDismissed(false) }
+    }
 
     private fun openSearch() {
         rule.onNodeWithTag("searchPill").performClick()
@@ -80,5 +93,24 @@ class LauncherUiTest {
         rule.onNodeWithTag("quickPage").assertIsDisplayed()
         rule.onNodeWithTag("openSettings").performClick()
         rule.onNodeWithTag("settings").assertIsDisplayed()
+    }
+
+    @Test fun setHomeTileShowsUntilNotNow() {
+        rule.onNodeWithTag("setHomeTile").assertIsDisplayed()
+        rule.onNodeWithTag("setHome").assertIsDisplayed()
+        rule.onNodeWithTag("notNow").performClick()
+        rule.onNodeWithTag("setHomeTile").assertDoesNotExist()
+    }
+
+    @Test fun settingsOffersSetAsHome() {
+        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("setAsHome").assertIsDisplayed()
+    }
+
+    @Test fun backOnHomeKeepsLauncherOpen() {
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.waitForIdle()
+        assertFalse(rule.activity.isFinishing)
+        rule.onNodeWithTag("clock").assertIsDisplayed()
     }
 }

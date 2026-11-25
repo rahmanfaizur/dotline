@@ -1,9 +1,12 @@
 package dev.rahmanfaizur.dotline
 
 import android.app.ActivityOptions
+import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -43,6 +46,7 @@ import dev.rahmanfaizur.dotline.ui.home.AppActions
 import dev.rahmanfaizur.dotline.ui.home.HomeScreen
 import dev.rahmanfaizur.dotline.ui.home.HomeState
 import dev.rahmanfaizur.dotline.ui.home.QuickPage
+import dev.rahmanfaizur.dotline.ui.home.SetHomePrompt
 import dev.rahmanfaizur.dotline.ui.menu.AppMenu
 import dev.rahmanfaizur.dotline.ui.menu.MenuActions
 import dev.rahmanfaizur.dotline.ui.menu.MenuTarget
@@ -61,6 +65,17 @@ class MainActivity : ComponentActivity() {
     /** Bumped every time Home is pressed while we're already the home screen. */
     private var homePresses by mutableIntStateOf(0)
 
+    /** Whether Dotline is the phone's default home app; re-checked every time we come back. */
+    private var isDefaultHome by mutableStateOf(true)
+
+    /** Set once Android's popup was shown and declined, so the next tap goes to Settings instead. */
+    private var roleDeclined = false
+
+    private val roleRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        refreshHomeRole()
+        if (!isDefaultHome) roleDeclined = true
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Light status/nav bar icons: the whole launcher sits on black.
@@ -76,9 +91,40 @@ class MainActivity : ComponentActivity() {
                 LocalAccent provides Dot.accent(settings.accent),
                 LocalIconShape provides Dot.iconShape(settings.iconShape),
             ) {
-                Launcher(app, settings, homePresses)
+                Launcher(
+                    app = app,
+                    settings = settings,
+                    homePresses = homePresses,
+                    home = HomeRole(isDefaultHome, ::askToBeHome, ::openHomeSettings),
+                )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshHomeRole()
+    }
+
+    private fun refreshHomeRole() {
+        isDefaultHome = getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) ?: true
+    }
+
+    /** Android's own "Set Dotline as default home app?" popup; falls back to Settings if it was declined. */
+    private fun askToBeHome() {
+        val roles = getSystemService(RoleManager::class.java)
+        if (!roleDeclined && roles != null && roles.isRoleAvailable(RoleManager.ROLE_HOME)) {
+            roleRequest.launch(roles.createRequestRoleIntent(RoleManager.ROLE_HOME))
+        } else {
+            openHomeSettings()
+        }
+    }
+
+    /** The phone's "Default apps → Home" screen, to pick or switch launchers. */
+    private fun openHomeSettings() {
+        val opened = runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }.isSuccess ||
+            runCatching { startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) }.isSuccess
+        if (!opened) startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -87,9 +133,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** Is Dotline the default home app, and how to change that. */
+class HomeRole(
+    val isDefault: Boolean,
+    val ask: () -> Unit,
+    val openSettings: () -> Unit,
+)
+
 @Composable
-private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: Int) {
+private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: Int, home: HomeRole) {
     val apps by app.apps.apps.collectAsStateWithLifecycle()
+    val promptDismissed by app.settings.homePromptDismissed.collectAsStateWithLifecycle(true)
     // Created once; collection pauses automatically while the launcher isn't visible.
     val batteryFlow = remember(app) { app.system.battery() }
     val alarmFlow = remember(app) { app.system.nextAlarm() }
@@ -160,6 +214,10 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
     }
 
     Box(Modifier.fillMaxSize().background(Dot.Black)) {
+        // Registered first so every overlay's Back wins over it: on the home screen itself
+        // Back does nothing, like any launcher (it used to close Dotline).
+        BackHandler(enabled = true) {}
+
         HorizontalPager(state = pager, beyondViewportPageCount = 0, key = { it }) { page ->
             if (page == homePage) {
                 HomeScreen(
@@ -176,6 +234,12 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
                         drawerOpen = true
                     },
                     onOpenSettings = { settingsOpen = true },
+                    setHome = if (!home.isDefault && !promptDismissed) {
+                        SetHomePrompt(
+                            set = home.ask,
+                            notNow = { app.appScope.launch { app.settings.setHomePromptDismissed(true) } },
+                        )
+                    } else null,
                 )
             } else {
                 QuickPage(
@@ -260,6 +324,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
             val store = app.settings
             SettingsScreen(
                 settings = settings,
+                isDefaultHome = home.isDefault,
                 lists = SettingsLists(
                     favorites = resolve(favoriteKeys),
                     dock = resolve(dockKeys),
@@ -275,6 +340,8 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
                     setIconShape = { sh -> app.appScope.launch { store.setIconShape(sh) } },
                     setClock = { m -> app.appScope.launch { store.setClock(m) } },
                     setShowQuickPage = { on -> app.appScope.launch { store.setShowQuickPage(on) } },
+                    setAsHome = home.ask,
+                    changeHome = home.openSettings,
                     close = { settingsOpen = false },
                 ),
             )

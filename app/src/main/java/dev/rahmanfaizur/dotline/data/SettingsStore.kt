@@ -41,6 +41,11 @@ class SettingsStore(context: Context) {
         .catch { emit(emptyPreferences()) }
         .map { it.toSettings() }
 
+    /** Whether "Not now" was tapped on the set-home tile. Starts as true so the tile never flashes before loading. */
+    val homePromptDismissed: Flow<Boolean> = store.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[HOME_PROMPT_DISMISSED] ?: false }
+
     suspend fun setFavorites(list: List<String>) = store.edit { it[FAVORITES] = list.join() }
     suspend fun setDock(list: List<String>) = store.edit { it[DOCK] = list.join() }
     suspend fun setQuick(list: List<String>) = store.edit { it[QUICK] = list.join() }
@@ -49,6 +54,7 @@ class SettingsStore(context: Context) {
     suspend fun setIconShape(shape: IconShape) = store.edit { it[ICON_SHAPE] = shape.name }
     suspend fun setClock(mode: ClockMode) = store.edit { it[CLOCK] = mode.name }
     suspend fun setShowQuickPage(show: Boolean) = store.edit { it[QUICK_PAGE] = show }
+    suspend fun setHomePromptDismissed(dismissed: Boolean) = store.edit { it[HOME_PROMPT_DISMISSED] = dismissed }
 
     private fun Preferences.toSettings() = LauncherSettings(
         favorites = this[FAVORITES]?.split(),
@@ -73,5 +79,6 @@ class SettingsStore(context: Context) {
         val ICON_SHAPE = stringPreferencesKey("icon_shape")
         val CLOCK = stringPreferencesKey("clock")
         val QUICK_PAGE = booleanPreferencesKey("quick_page")
+        val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

@@ -54,12 +54,15 @@ class SettingsActions(
     val setIconShape: (IconShape) -> Unit,
     val setClock: (ClockMode) -> Unit,
     val setShowQuickPage: (Boolean) -> Unit,
+    val setAsHome: () -> Unit,
+    val changeHome: () -> Unit,
     val close: () -> Unit,
 )
 
 @Composable
 fun SettingsScreen(
     settings: LauncherSettings,
+    isDefaultHome: Boolean,
     lists: SettingsLists,
     actions: SettingsActions,
     modifier: Modifier = Modifier,
@@ -83,6 +86,22 @@ fun SettingsScreen(
                 style = Dot.label.copy(color = Dot.Muted, fontSize = 22.sp),
                 modifier = Modifier.clickable(onClick = actions.close).padding(12.dp),
             )
+        }
+
+        Section("Home screen") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText(
+                    if (isDefaultHome) "Dotline is your home screen" else "Dotline isn't your home screen yet",
+                    style = Dot.label.copy(fontSize = 14.sp),
+                    modifier = Modifier.weight(1f),
+                )
+                Gap(10.dp)
+                if (isDefaultHome) {
+                    Chip("Change", selected = false, accent = accent, tag = "changeHome", onClick = actions.changeHome)
+                } else {
+                    Chip("Set as home screen", selected = true, accent = accent, tag = "setAsHome", onClick = actions.setAsHome)
+                }
+            }
         }
 
         AppListSection("Home apps", lists.favorites, actions.removeFavorite)
@@ -205,14 +224,14 @@ private fun ShapeOption(label: String, shape: Shape, selected: Boolean, accent: 
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
+private fun Chip(label: String, selected: Boolean, accent: Color, tag: String = "clock:$label", onClick: () -> Unit) {
     BasicText(
         label,
         style = Dot.label.copy(color = if (selected) Dot.Black else Dot.Ink, fontSize = 13.sp),
         modifier = Modifier
             .background(if (selected) accent else Dot.SurfaceHigh, RoundedCornerShape(50))
             .clickable(onClick = onClick)
-            .testTag("clock:$label")
+            .testTag(tag)
             .padding(horizontal = 14.dp, vertical = 9.dp),
     )
 }
