@@ -82,6 +82,17 @@
             android:taskAffinity="dev.rahmanfaizur.dotline.nightclock"
             android:theme="@style/Theme.Dotline" />
 
+        <!-- Notification access, only if you allow it: dots on chosen apps and Now playing. -->
+        <service
+            android:name=".notify.DotlineNotifications"
+            android:exported="true"
+            android:label="Dotline notification dots"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- Tiles for the phone's pull-down panel. Only the system can bind them; no permission is requested. -->
         <service
             android:name=".tiles.WallpaperTile"

@@ -37,4 +37,33 @@ class SystemHooksTest {
             }
         }
     }
+
+    private fun shell(cmd: String) {
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd).close()
+    }
+
+    private fun waitFor(ms: Long = 8_000, check: () -> Boolean): Boolean {
+        val end = System.currentTimeMillis() + ms
+        while (System.currentTimeMillis() < end) { if (check()) return true; Thread.sleep(100) }
+        return check()
+    }
+
+    @Test fun notificationDotsOnlyWhileSwitchedOn() {
+        val app = context.applicationContext as DotlineApp
+        val listener = "${context.packageName}/${context.packageName}.notify.DotlineNotifications"
+        kotlinx.coroutines.runBlocking {
+            app.settings.setDotApps(setOf("com.android.shell"))
+            app.settings.setNotificationDots(true)
+        }
+        try {
+            shell("cmd notification allow_listener $listener")
+            shell("cmd notification post -t Hello dotline_test Test")
+            assertTrue("dot should appear", waitFor { "com.android.shell" in app.notifications.active.value })
+            kotlinx.coroutines.runBlocking { app.settings.setNotificationDots(false) }
+            assertTrue("switching off clears everything", waitFor { app.notifications.active.value.isEmpty() })
+        } finally {
+            kotlinx.coroutines.runBlocking { app.settings.setNotificationDots(false); app.settings.setDotApps(emptySet()) }
+            shell("cmd notification disallow_listener $listener")
+        }
+    }
 }

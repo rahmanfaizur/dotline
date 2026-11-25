@@ -42,6 +42,11 @@ data class LauncherSettings(
     val tileStyle: TileStyle = TileStyle.Smoke,
     val drawerBackground: DrawerBackground = DrawerBackground.Frosted,
     val textTone: TextTone = TextTone.Auto,
+    /** Off until the user turns them on (they need notification access). */
+    val notificationDots: Boolean = false,
+    val nowPlaying: Boolean = false,
+    /** Apps that get dots; null = the defaults that are installed. */
+    val dotApps: Set<String>? = null,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -69,6 +74,9 @@ class SettingsStore(context: Context) {
     suspend fun setShowQuickPage(show: Boolean) = store.edit { it[QUICK_PAGE] = show }
     suspend fun setWallpaper(kind: WallpaperKind) = store.edit { it[WALLPAPER] = kind.name }
     suspend fun setTileStyle(style: TileStyle) = store.edit { it[TILE_STYLE] = style.name }
+    suspend fun setNotificationDots(on: Boolean) = store.edit { it[NOTIF_DOTS] = on }
+    suspend fun setNowPlaying(on: Boolean) = store.edit { it[NOW_PLAYING] = on }
+    suspend fun setDotApps(apps: Set<String>) = store.edit { it[DOT_APPS] = apps }
     suspend fun setTextTone(tone: TextTone) = store.edit { it[TEXT_TONE] = tone.name }
     suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
     suspend fun setHomePromptDismissed(dismissed: Boolean) = store.edit { it[HOME_PROMPT_DISMISSED] = dismissed }
@@ -86,6 +94,9 @@ class SettingsStore(context: Context) {
         tileStyle = this[TILE_STYLE]?.let { runCatching { TileStyle.valueOf(it) }.getOrNull() } ?: TileStyle.Smoke,
         drawerBackground = this[DRAWER_BG]?.let { runCatching { DrawerBackground.valueOf(it) }.getOrNull() }
             ?: DrawerBackground.Frosted,
+        notificationDots = this[NOTIF_DOTS] ?: false,
+        nowPlaying = this[NOW_PLAYING] ?: false,
+        dotApps = this[DOT_APPS],
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -105,6 +116,9 @@ class SettingsStore(context: Context) {
         val TILE_STYLE = stringPreferencesKey("tile_style")
         val DRAWER_BG = stringPreferencesKey("drawer_bg")
         val TEXT_TONE = stringPreferencesKey("text_tone")
+        val NOTIF_DOTS = booleanPreferencesKey("notification_dots")
+        val NOW_PLAYING = booleanPreferencesKey("now_playing")
+        val DOT_APPS = stringSetPreferencesKey("dot_apps")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

@@ -9,6 +9,11 @@ import dev.rahmanfaizur.dotline.data.Features
 import dev.rahmanfaizur.dotline.data.SystemInfo
 import dev.rahmanfaizur.dotline.data.Wallpapers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import dev.rahmanfaizur.dotline.notify.DotlineNotifications
+import dev.rahmanfaizur.dotline.notify.NotificationHub
 
 /** Holds the long-lived pieces so they survive the activity being recreated. */
 class DotlineApp : Application() {
@@ -28,6 +33,7 @@ class DotlineApp : Application() {
         private set
     lateinit var features: Features
         private set
+    val notifications = NotificationHub()
 
     override fun onCreate() {
         super.onCreate()
@@ -38,5 +44,12 @@ class DotlineApp : Application() {
         wallpapers = Wallpapers(this)
         shortcuts = Shortcuts(this)
         features = Features(this)
+        // The listener only works while Dots or Now playing is switched on.
+        appScope.launch {
+            settings.settings.map { it.notificationDots || it.nowPlaying }.distinctUntilChanged().collect { on ->
+                notifications.wanted = on
+                if (on) DotlineNotifications.instance?.refresh() else notifications.clear()
+            }
+        }
     }
 }
