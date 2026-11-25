@@ -6,7 +6,7 @@ A fast, private Android home screen with a black, dot-matrix look.
 
 - **Home (Bento):** round-dot clock, live battery and next-alarm tiles, four app tiles, search pill and a four-app dock.
 - **All apps:** swipe up. Real app icons, a big letter showing where you are, and an A–Z strip to jump. Pull down to close.
-- **Search:** type a few letters and press Enter to open the top match. Handles prefixes, word starts ("kite" finds Yellow Kite), initials ("ps" finds Play Store) and accents.
+- **Search:** type a few letters and press Enter to open the top match. Handles prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents.
 - **Quick page:** swipe right for a dot calendar, free storage, battery health and four quick-open apps.
 - **Long-press any app:** app info, add or remove from home, dock or quick open, hide, uninstall (Android asks to confirm).
 - **Settings:** long-press empty home. Accent colour, round or rounded-square icons, 12/24-hour clock, quick page on or off, hidden apps.
