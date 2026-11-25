@@ -17,6 +17,9 @@ enum class IconShape { Round, Square }
 enum class ClockMode { System, H24, H12 }
 
 /** How tiles sit on the wallpaper. On plain black, the see-through styles show as Solid. */
+/** Behind the app list. On a black wallpaper all of them show as black. */
+enum class DrawerBackground { Frosted, Dimmed, Sheet, Black }
+
 enum class TileStyle { Smoke, Glass, Tinted, Outline, Floating, Solid }
 
 /**
@@ -34,6 +37,7 @@ data class LauncherSettings(
     val showQuickPage: Boolean = true,
     val wallpaper: WallpaperKind = WallpaperKind.Black,
     val tileStyle: TileStyle = TileStyle.Smoke,
+    val drawerBackground: DrawerBackground = DrawerBackground.Frosted,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -61,6 +65,7 @@ class SettingsStore(context: Context) {
     suspend fun setShowQuickPage(show: Boolean) = store.edit { it[QUICK_PAGE] = show }
     suspend fun setWallpaper(kind: WallpaperKind) = store.edit { it[WALLPAPER] = kind.name }
     suspend fun setTileStyle(style: TileStyle) = store.edit { it[TILE_STYLE] = style.name }
+    suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
     suspend fun setHomePromptDismissed(dismissed: Boolean) = store.edit { it[HOME_PROMPT_DISMISSED] = dismissed }
 
     private fun Preferences.toSettings() = LauncherSettings(
@@ -74,6 +79,8 @@ class SettingsStore(context: Context) {
         showQuickPage = this[QUICK_PAGE] ?: true,
         wallpaper = this[WALLPAPER]?.let { runCatching { WallpaperKind.valueOf(it) }.getOrNull() } ?: WallpaperKind.Black,
         tileStyle = this[TILE_STYLE]?.let { runCatching { TileStyle.valueOf(it) }.getOrNull() } ?: TileStyle.Smoke,
+        drawerBackground = this[DRAWER_BG]?.let { runCatching { DrawerBackground.valueOf(it) }.getOrNull() }
+            ?: DrawerBackground.Frosted,
     )
 
     private fun List<String>.join() = joinToString("\n")
@@ -90,6 +97,7 @@ class SettingsStore(context: Context) {
         val QUICK_PAGE = booleanPreferencesKey("quick_page")
         val WALLPAPER = stringPreferencesKey("wallpaper")
         val TILE_STYLE = stringPreferencesKey("tile_style")
+        val DRAWER_BG = stringPreferencesKey("drawer_bg")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import dev.rahmanfaizur.dotline.data.DrawerBackground
 import dev.rahmanfaizur.dotline.data.TileStyle
 import dev.rahmanfaizur.dotline.data.WallpaperKind
 import dev.rahmanfaizur.dotline.ui.common.Backdrop
@@ -75,6 +76,7 @@ class SettingsActions(
     val setWallpaper: (WallpaperKind) -> Unit,
     val pickPhoto: (WallpaperKind) -> Unit,
     val setTileStyle: (TileStyle) -> Unit,
+    val setDrawerBackground: (DrawerBackground) -> Unit,
     /** Puts the lock-screen version of the chosen wallpaper on the lock screen. */
     val useOnLockScreen: () -> Unit,
     val setAsHome: () -> Unit,
@@ -235,6 +237,13 @@ private val TileNames = listOf(
     TileStyle.Solid to "Solid",
 )
 
+private val DrawerNames = listOf(
+    DrawerBackground.Frosted to "Frosted",
+    DrawerBackground.Dimmed to "Dimmed",
+    DrawerBackground.Sheet to "Glass sheet",
+    DrawerBackground.Black to "Black",
+)
+
 /** Wallpaper + tile style, with a small live preview of the home screen. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -282,6 +291,13 @@ private fun LookSection(
         }
         if (backdrop == null && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Glass, TileStyle.Tinted)) {
             BasicText("On a black wallpaper these tiles show as solid.", style = Dot.label.copy(color = Dot.Muted))
+        }
+
+        Caption("App list")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            DrawerNames.forEach { (bg, name) ->
+                Chip(name, settings.drawerBackground == bg, accent, tag = "drawerBg:$name") { actions.setDrawerBackground(bg) }
+            }
         }
     }
 }

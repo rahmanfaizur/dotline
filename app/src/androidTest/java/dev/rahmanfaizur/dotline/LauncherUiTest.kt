@@ -53,6 +53,7 @@ class LauncherUiTest {
             app.settings.setHomePromptDismissed(false)
             app.settings.setWallpaper(WallpaperKind.Black)
             app.settings.setTileStyle(TileStyle.Smoke)
+            app.settings.setDrawerBackground(dev.rahmanfaizur.dotline.data.DrawerBackground.Frosted)
         }
     }
 
@@ -167,5 +168,17 @@ class LauncherUiTest {
         val before = wm.getWallpaperId(android.app.WallpaperManager.FLAG_LOCK)
         assertTrue(app.wallpapers.setLockScreen(WallpaperKind.DotField, 0xFFE8453C.toInt(), 108, 240))
         assertNotEquals(before, wm.getWallpaperId(android.app.WallpaperManager.FLAG_LOCK))
+    }
+
+    @Test fun appListWorksOnEveryBackground() {
+        runBlocking { app.settings.setWallpaper(WallpaperKind.Sunset) }
+        for (bg in dev.rahmanfaizur.dotline.data.DrawerBackground.entries) {
+            runBlocking { app.settings.setDrawerBackground(bg) }
+            rule.onNodeWithTag("searchPill").performClick()
+            rule.onNodeWithTag("searchField").performTextInput("chr")
+            inDrawer("Chrome").assertIsDisplayed()
+            rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+            rule.waitForIdle()
+        }
     }
 }

@@ -322,6 +322,8 @@ private fun Launcher(
                 focusSearch = focusSearch,
                 actions = actions,
                 onClose = ::closeDrawer,
+                backdrop = backdrop,
+                background = settings.drawerBackground,
             )
         }
         // A launcher sits at the bottom of the back stack; Back only closes overlays.
@@ -405,6 +407,7 @@ private fun Launcher(
                     },
                     pickPhoto = pickPhoto,
                     setTileStyle = { st -> app.appScope.launch { store.setTileStyle(st) } },
+                    setDrawerBackground = { bg -> app.appScope.launch { store.setDrawerBackground(bg) } },
                     useOnLockScreen = {
                         lockNote = "Getting it ready…"
                         app.appScope.launch {

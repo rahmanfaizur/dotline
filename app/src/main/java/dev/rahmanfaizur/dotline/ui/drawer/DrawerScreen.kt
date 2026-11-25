@@ -78,6 +78,13 @@ import dev.rahmanfaizur.dotline.ui.home.AppActions
 import dev.rahmanfaizur.dotline.ui.home.appClicks
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.layout.ContentScale
+import dev.rahmanfaizur.dotline.data.DrawerBackground
+import dev.rahmanfaizur.dotline.ui.common.Backdrop
 import kotlinx.coroutines.launch
 
 /**
@@ -93,7 +100,12 @@ fun DrawerScreen(
     actions: AppActions,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    backdrop: Backdrop? = null,
+    background: DrawerBackground = DrawerBackground.Black,
 ) {
+    // Plain black when there's no wallpaper; otherwise the chosen see-through look.
+    val bg = if (backdrop == null) DrawerBackground.Black else background
+    val glassy = bg != DrawerBackground.Black
     val results = remember(apps, query) { AppIndex.search(apps, query) { it.label } }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -106,12 +118,13 @@ fun DrawerScreen(
         }
     }
 
+    Box(modifier.fillMaxSize().testTag("drawer")) {
+    DrawerGround(bg, backdrop)
     Column(
-        modifier
+        Modifier
             .fillMaxSize()
-            .background(Dot.Black)
-            .testTag("drawer")
             .statusBarsPadding()
+            .then(if (bg == DrawerBackground.Sheet) Modifier.padding(top = SheetGap) else Modifier)
             .navigationBarsPadding()
             .imePadding()
             .padding(horizontal = 16.dp),
@@ -122,12 +135,53 @@ fun DrawerScreen(
             onQueryChange = onQueryChange,
             onGo = { results.firstOrNull()?.let { actions.launch(it, null) } },
             focusRequester = focusRequester,
+            glassy = glassy,
         )
         Spacer(Modifier.height(12.dp))
         if (query.isBlank()) {
             AlphabetGrid(apps, actions, Modifier.weight(1f).nestedScroll(pullToClose))
         } else {
-            SearchResults(results, actions, Modifier.weight(1f).nestedScroll(pullToClose))
+            SearchResults(results, actions, Modifier.weight(1f).nestedScroll(pullToClose), glassy)
+        }
+    }
+    }
+}
+
+/** The glass sheet opens right up to just below the status bar. */
+private val SheetGap = 6.dp
+private val GlassFill = Color(0x1AFFFFFF)
+private val GlassEdge = Color(0x24FFFFFF)
+
+/**
+ * What's behind the app list. Frosted reuses the small blurred wallpaper copy made for the
+ * tiles, scaled up, so it costs nothing extra while scrolling.
+ */
+@Composable
+private fun DrawerGround(bg: DrawerBackground, backdrop: Backdrop?) {
+    when {
+        backdrop == null || bg == DrawerBackground.Black -> Box(Modifier.fillMaxSize().background(Dot.Black))
+        bg == DrawerBackground.Frosted -> {
+            Image(backdrop.frosted, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.Low)
+            Box(Modifier.fillMaxSize().background(Color(0x8C000000)))
+        }
+        bg == DrawerBackground.Dimmed -> {
+            Image(backdrop.full, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Color(0xA8000000)))
+        }
+        else -> { // Sheet
+            Image(backdrop.full, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(top = SheetGap)
+                    .clip(shape)
+                    .border(1.dp, GlassEdge, shape),
+            ) {
+                Image(backdrop.frosted, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.Low)
+                Box(Modifier.fillMaxSize().background(Color(0x99000000)))
+            }
         }
     }
 }
@@ -175,6 +229,7 @@ private fun SearchField(
     onQueryChange: (String) -> Unit,
     onGo: () -> Unit,
     focusRequester: FocusRequester,
+    glassy: Boolean,
 ) {
     BasicTextField(
         value = query,
@@ -196,7 +251,10 @@ private fun SearchField(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(Dot.Surface, RoundedCornerShape(50))
+                    .then(
+                        if (glassy) Modifier.background(GlassFill, RoundedCornerShape(50)).border(1.dp, GlassEdge, RoundedCornerShape(50))
+                        else Modifier.background(Dot.Surface, RoundedCornerShape(50)),
+                    )
                     .padding(horizontal = 18.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -349,7 +407,7 @@ private fun AppCell(app: AppEntry, actions: AppActions) {
 }
 
 @Composable
-private fun SearchResults(results: List<AppEntry>, actions: AppActions, modifier: Modifier) {
+private fun SearchResults(results: List<AppEntry>, actions: AppActions, modifier: Modifier, glassy: Boolean) {
     val accent = LocalAccent.current
     if (results.isEmpty()) {
         BasicText("No apps match", style = Dot.caption, modifier = modifier.padding(top = 8.dp))
@@ -364,7 +422,7 @@ private fun SearchResults(results: List<AppEntry>, actions: AppActions, modifier
                     .fillMaxWidth()
                     .then(
                         if (top) Modifier
-                            .background(Dot.Surface, RoundedCornerShape(18.dp))
+                            .background(if (glassy) GlassFill else Dot.Surface, RoundedCornerShape(18.dp))
                             .border(1.dp, accent, RoundedCornerShape(18.dp))
                         else Modifier,
                     )
