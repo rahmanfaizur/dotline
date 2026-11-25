@@ -101,6 +101,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.layout.requiredSize
@@ -442,6 +445,14 @@ private fun FastScroller(
     val canScroll by remember(gridState) { derivedStateOf { gridState.canScrollForward || gridState.canScrollBackward } }
     if (!canScroll || total == 0) return
 
+    // Hidden while idle; fades in while the list moves or a finger is on the edge, out a second after.
+    var showing by remember { mutableStateOf(false) }
+    val moving = gridState.isScrollInProgress || dragging
+    LaunchedEffect(moving) {
+        if (moving) showing = true else { delay(1_000); showing = false }
+    }
+    val alpha by animateFloatAsState(if (showing) 1f else 0f, tween(if (showing) 120 else 400), label = "handle")
+
     Box(
         modifier
             .fillMaxHeight()
@@ -488,9 +499,12 @@ private fun FastScroller(
             Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = 8.dp)
-                .graphicsLayer { translationY = progress * (trackHeight - thumbH.toPx()) }
+                .graphicsLayer {
+                    translationY = progress * (trackHeight - thumbH.toPx())
+                    this.alpha = alpha
+                }
                 .size(width = if (dragging) 7.dp else 5.dp, height = thumbH)
-                .background(if (dragging) Dot.Ink else Dot.Ink.copy(alpha = 0.45f), RoundedCornerShape(50)),
+                .background(if (dragging) Dot.Ink else Dot.Ink.copy(alpha = 0.6f), RoundedCornerShape(50)),
         )
 
         val b = bubble
