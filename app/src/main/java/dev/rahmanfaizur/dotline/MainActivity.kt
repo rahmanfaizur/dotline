@@ -1,5 +1,6 @@
 package dev.rahmanfaizur.dotline
 
+import android.app.ActivityOptions
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -30,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.rahmanfaizur.dotline.data.AppEntry
 import dev.rahmanfaizur.dotline.data.LauncherSettings
@@ -109,6 +111,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
     var menuNote by remember { mutableStateOf<String?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     val focus = LocalFocusManager.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
 
     fun closeDrawer() {
@@ -125,7 +128,14 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
 
     val actions = remember(app) {
         AppActions(
-            launch = { entry: AppEntry -> app.apps.launch(entry); closeDrawer() },
+            launch = { entry: AppEntry, bounds: android.graphics.Rect? ->
+                // Grow the app out of the tapped icon (no bounds, e.g. Enter in search: plain open).
+                val options = bounds?.let {
+                    ActivityOptions.makeClipRevealAnimation(view, it.left, it.top, it.width(), it.height()).toBundle()
+                }
+                app.apps.launch(entry, bounds, options)
+                closeDrawer()
+            },
             longPress = { entry: AppEntry -> focus.clearFocus(); menuNote = null; menuFor = entry },
         )
     }
@@ -193,6 +203,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
                 onQueryChange = { query = it },
                 focusSearch = focusSearch,
                 actions = actions,
+                onClose = ::closeDrawer,
             )
         }
         // A launcher sits at the bottom of the back stack; Back only closes overlays.

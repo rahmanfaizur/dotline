@@ -56,7 +56,8 @@ class HomeState(
 
 /** Shared click handlers for any app shown on screen. */
 class AppActions(
-    val launch: (AppEntry) -> Unit,
+    /** Opens the app; bounds = where its icon is, for the opening animation. */
+    val launch: (AppEntry, android.graphics.Rect?) -> Unit,
     val longPress: (AppEntry) -> Unit,
 )
 

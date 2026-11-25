@@ -42,6 +42,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.runtime.rememberUpdatedState
+import kotlin.math.abs
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -70,11 +78,13 @@ fun DrawerScreen(
     onQueryChange: (String) -> Unit,
     focusSearch: Boolean,
     actions: AppActions,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val results = remember(apps, query) { AppIndex.search(apps, query) { it.label } }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val pullToClose = rememberPullToClose(onClose)
 
     LaunchedEffect(focusSearch) {
         if (focusSearch) {
@@ -97,14 +107,51 @@ fun DrawerScreen(
         SearchField(
             query = query,
             onQueryChange = onQueryChange,
-            onGo = { results.firstOrNull()?.let(actions.launch) },
+            onGo = { results.firstOrNull()?.let { actions.launch(it, null) } },
             focusRequester = focusRequester,
         )
         Spacer(Modifier.height(12.dp))
         if (query.isBlank()) {
-            AlphabetGrid(apps, actions, Modifier.weight(1f))
+            AlphabetGrid(apps, actions, Modifier.weight(1f).nestedScroll(pullToClose))
         } else {
-            SearchResults(results, actions, Modifier.weight(1f))
+            SearchResults(results, actions, Modifier.weight(1f).nestedScroll(pullToClose))
+        }
+    }
+}
+
+/**
+ * Pulling down past the top of the list closes the drawer; any scroll hides the keyboard
+ * so it never covers the apps you're looking at.
+ */
+@Composable
+private fun rememberPullToClose(onClose: () -> Unit): NestedScrollConnection {
+    val focus = LocalFocusManager.current
+    val close by rememberUpdatedState(onClose)
+    return remember {
+        object : NestedScrollConnection {
+            var pulled = 0f
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && abs(available.y) > 1f) focus.clearFocus()
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput) {
+                    if (available.y > 0f) {
+                        pulled += available.y
+                        if (pulled > 180f) { pulled = 0f; close() }
+                    } else if (consumed.y != 0f) {
+                        pulled = 0f
+                    }
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                pulled = 0f
+                return Velocity.Zero
+            }
         }
     }
 }
