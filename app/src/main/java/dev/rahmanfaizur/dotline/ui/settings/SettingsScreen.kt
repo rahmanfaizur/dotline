@@ -109,117 +109,143 @@ fun SettingsScreen(
             .background(Dot.Black)
             .testTag("settings")
             .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .navigationBarsPadding(),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            BasicText("SETTINGS", style = Dot.dots(40), modifier = Modifier.weight(1f))
+        // Stays put while the rest scrolls, so closing is always one tap away.
+        Row(
+            Modifier.fillMaxWidth().padding(start = 18.dp, end = 4.dp, top = 6.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText("SETTINGS", style = Dot.dots(32), modifier = Modifier.weight(1f))
             BasicText(
                 "✕",
                 style = Dot.label.copy(color = Dot.Muted, fontSize = 22.sp),
-                modifier = Modifier.clickable(onClick = actions.close).padding(12.dp),
+                modifier = Modifier.clickable(onClickLabel = "Close settings", onClick = actions.close).padding(14.dp),
             )
         }
 
-        Section("Home screen") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                BasicText(
-                    if (isDefaultHome) "Dotline is your home screen" else "Dotline isn't your home screen yet",
-                    style = Dot.label.copy(fontSize = 14.sp),
-                    modifier = Modifier.weight(1f),
-                )
-                Gap(10.dp)
-                if (isDefaultHome) {
-                    Chip("Change", selected = false, accent = accent, tag = "changeHome", onClick = actions.changeHome)
-                } else {
-                    Chip("Set as home screen", selected = true, accent = accent, tag = "setAsHome", onClick = actions.setAsHome)
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // Only worth the top spot until Dotline is the home screen.
+            if (!isDefaultHome) {
+                Section("Home screen") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BasicText("Dotline isn't your home screen yet", style = Dot.label.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
+                        Gap(10.dp)
+                        Chip("Set as home screen", selected = true, accent = accent, tag = "setAsHome", onClick = actions.setAsHome)
+                    }
                 }
             }
-        }
 
-        LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent)
+            LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent)
 
-        Section("Lock screen") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                BasicText(
-                    "Use this wallpaper on the lock screen too",
-                    style = Dot.label.copy(fontSize = 14.sp),
-                    modifier = Modifier.weight(1f),
-                )
-                Gap(10.dp)
-                Chip("Set", selected = true, accent = accent, tag = "useOnLock", onClick = actions.useOnLockScreen)
+            Section("Your apps") {
+                AppStrip("Home", lists.favorites, actions.removeFavorite)
+                AppStrip("Dock", lists.dock, actions.removeDock)
+                AppStrip("Quick open", lists.quick, actions.removeQuick)
+                BasicText("Tap an app here to remove it. Long-press any app to add it.", style = Dot.label.copy(color = Dot.Muted))
             }
+
+            Section("Home and lock screen") {
+                if (isDefaultHome) {
+                    SettingRow("Dotline is your home screen") {
+                        Chip("Change", selected = false, accent = accent, tag = "changeHome", onClick = actions.changeHome)
+                    }
+                }
+                Caption("Clock")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("Phone setting", settings.clock == ClockMode.System, accent) { actions.setClock(ClockMode.System) }
+                    Chip("24-hour", settings.clock == ClockMode.H24, accent) { actions.setClock(ClockMode.H24) }
+                    Chip("12-hour", settings.clock == ClockMode.H12, accent) { actions.setClock(ClockMode.H12) }
+                }
+                Row(
+                    Modifier.fillMaxWidth().clickable { actions.setShowQuickPage(!settings.showQuickPage) }.testTag("toggle:quickPage"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BasicText("Quick page (swipe right)", style = Dot.label.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
+                    Switch(settings.showQuickPage, accent)
+                }
+                SettingRow("Wallpaper on the lock screen") {
+                    Chip("Set", selected = true, accent = accent, tag = "useOnLock", onClick = actions.useOnLockScreen)
+                }
+                BasicText(
+                    lockNote ?: "The lock screen clock stays your phone's own.",
+                    style = Dot.label.copy(color = Dot.Muted),
+                    modifier = Modifier.testTag("lockNote"),
+                )
+            }
+
+            Section("Hidden apps") {
+                if (lists.hidden.isEmpty()) {
+                    BasicText("None. Long-press an app → Hide from all apps.", style = Dot.label.copy(color = Dot.Muted))
+                } else {
+                    lists.hidden.forEach { app -> AppRow(app, "Show", actions.unhide) }
+                }
+            }
+
             BasicText(
-                lockNote ?: "The lock screen clock stays your phone's own. Undo any time in the phone's wallpaper settings.",
-                style = Dot.label.copy(color = Dot.Muted),
-                modifier = Modifier.testTag("lockNote"),
+                "Dotline · no internet access · settings stay on this phone",
+                style = Dot.caption.copy(fontSize = 10.sp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
             )
         }
+    }
+}
 
-        AppListSection("Home apps", lists.favorites, actions.removeFavorite)
-        AppListSection("Dock", lists.dock, actions.removeDock)
-        AppListSection("Quick open", lists.quick, actions.removeQuick)
+@Composable
+private fun SettingRow(text: String, action: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        BasicText(text, style = Dot.label.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
+        Gap(10.dp)
+        action()
+    }
+}
 
-        Section("Accent colour") {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Dot.Accents.forEachIndexed { i, color ->
-                    val selected = settings.accent == i
+/** One pinned list as a row of icons; tapping an icon removes it. */
+@Composable
+private fun AppStrip(title: String, apps: List<AppEntry>, onRemove: (AppEntry) -> Unit) {
+    Caption("$title · ${apps.size}/4")
+    if (apps.isEmpty()) {
+        BasicText("Empty", style = Dot.label.copy(color = Dot.Faint))
+        return
+    }
+    Row(Modifier.fillMaxWidth()) {
+        apps.take(4).forEach { app ->
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable(onClickLabel = "Remove ${app.label}") { onRemove(app) }
+                    .testTag("Remove:${app.label}")
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box {
+                    AppIcon(app, 44.dp)
                     Box(
                         Modifier
-                            .size(34.dp)
-                            .then(if (selected) Modifier.border(2.dp, Dot.Ink, CircleShape) else Modifier)
-                            .padding(5.dp)
-                            .background(color, CircleShape)
-                            .clickable { actions.setAccent(i) }
-                            .testTag("accent:${Dot.AccentNames[i]}"),
-                    )
+                            .align(Alignment.TopEnd)
+                            .size(16.dp)
+                            .background(Dot.SurfaceHigh, CircleShape)
+                            .border(1.dp, Dot.Black, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { BasicText("✕", style = Dot.label.copy(color = Dot.Ink, fontSize = 8.sp)) }
                 }
+                Gap(4.dp)
+                BasicText(
+                    app.label,
+                    style = Dot.label.copy(fontSize = 10.sp, color = Dot.Muted),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                )
             }
         }
-
-        Section("Icon shape") {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ShapeOption("Round", CircleShape, settings.iconShape == IconShape.Round, accent) {
-                    actions.setIconShape(IconShape.Round)
-                }
-                ShapeOption("Rounded square", Dot.iconShape(IconShape.Square), settings.iconShape == IconShape.Square, accent) {
-                    actions.setIconShape(IconShape.Square)
-                }
-            }
-        }
-
-        Section("Clock") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Phone setting", settings.clock == ClockMode.System, accent) { actions.setClock(ClockMode.System) }
-                Chip("24-hour", settings.clock == ClockMode.H24, accent) { actions.setClock(ClockMode.H24) }
-                Chip("12-hour", settings.clock == ClockMode.H12, accent) { actions.setClock(ClockMode.H12) }
-            }
-        }
-
-        Section("Quick page") {
-            Row(
-                Modifier.fillMaxWidth().clickable { actions.setShowQuickPage(!settings.showQuickPage) }.testTag("toggle:quickPage"),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BasicText("Swipe right for calendar and storage", style = Dot.label.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
-                Switch(settings.showQuickPage, accent)
-            }
-        }
-
-        Section("Hidden apps") {
-            if (lists.hidden.isEmpty()) {
-                BasicText("None. Long-press an app → Hide from all apps.", style = Dot.label.copy(color = Dot.Muted))
-            } else {
-                lists.hidden.forEach { app -> AppRow(app, "Show", actions.unhide) }
-            }
-        }
-
-        Section("About") {
-            BasicText("Dotline · no internet access · settings stay on this phone", style = Dot.label.copy(color = Dot.Muted))
-        }
-        Spacer(Modifier.size(24.dp))
+        repeat(4 - apps.size.coerceAtMost(4)) { Spacer(Modifier.weight(1f)) }
     }
 }
 
@@ -314,6 +340,32 @@ private fun LookSection(
                 Chip(name, settings.drawerBackground == bg, accent, tag = "drawerBg:$name") { actions.setDrawerBackground(bg) }
             }
         }
+
+        Caption("Accent colour")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Dot.Accents.forEachIndexed { i, color ->
+                val selected = settings.accent == i
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .then(if (selected) Modifier.border(2.dp, Dot.Ink, CircleShape) else Modifier)
+                        .padding(5.dp)
+                        .background(color, CircleShape)
+                        .clickable(onClickLabel = Dot.AccentNames[i]) { actions.setAccent(i) }
+                        .testTag("accent:${Dot.AccentNames[i]}"),
+                )
+            }
+        }
+
+        Caption("Icon shape")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ShapeOption("Round", CircleShape, settings.iconShape == IconShape.Round, accent) {
+                actions.setIconShape(IconShape.Round)
+            }
+            ShapeOption("Rounded square", Dot.iconShape(IconShape.Square), settings.iconShape == IconShape.Square, accent) {
+                actions.setIconShape(IconShape.Square)
+            }
+        }
     }
 }
 
@@ -325,7 +377,7 @@ private fun LookPreview(backdrop: Backdrop?, style: TileStyle, darkText: Boolean
         backdrop = backdrop,
         style = style,
         modifier = Modifier
-            .width(132.dp)
+            .width(112.dp)
             .aspectRatio(9f / 20f)
             .clip(RoundedCornerShape(18.dp))
             .border(2.dp, Dot.SurfaceHigh, RoundedCornerShape(18.dp))
@@ -402,16 +454,6 @@ private fun Section(title: String, content: @Composable () -> Unit) {
     ) {
         Caption(title)
         content()
-    }
-}
-
-@Composable
-private fun AppListSection(title: String, apps: List<AppEntry>, onRemove: (AppEntry) -> Unit) {
-    Section("$title · ${apps.size}/4") {
-        if (apps.isEmpty()) {
-            BasicText("Empty. Long-press an app to add one.", style = Dot.label.copy(color = Dot.Muted))
-        }
-        apps.forEach { app -> AppRow(app, "Remove", onRemove) }
     }
 }
 
