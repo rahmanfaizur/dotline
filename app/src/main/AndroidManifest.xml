@@ -8,6 +8,8 @@
 
     <!-- Lets "Uninstall" open Android's own confirmation screen. Nothing is removed without it. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Only to put a Dotline wallpaper on the lock screen when asked. It can't read anything. -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
     <!-- Lets LauncherApps list every launchable app (package-visibility rules, Android 11+). -->
     <queries>

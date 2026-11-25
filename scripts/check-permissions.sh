@@ -13,6 +13,8 @@ AAPT2="$(ls -d "$SDK"/build-tools/*/aapt2 | sort -V | tail -1)"
 ALLOWED=(
   # Opens Android's "Uninstall this app?" screen; the user must confirm there.
   "android.permission.REQUEST_DELETE_PACKAGES"
+  # Sets the lock-screen wallpaper when the user taps Set; it can't read any wallpaper or file.
+  "android.permission.SET_WALLPAPER"
   "dev.rahmanfaizur.dotline.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
   "dev.rahmanfaizur.dotline.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )

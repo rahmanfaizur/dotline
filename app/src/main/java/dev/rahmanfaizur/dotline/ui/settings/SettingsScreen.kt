@@ -75,6 +75,8 @@ class SettingsActions(
     val setWallpaper: (WallpaperKind) -> Unit,
     val pickPhoto: (WallpaperKind) -> Unit,
     val setTileStyle: (TileStyle) -> Unit,
+    /** Puts the lock-screen version of the chosen wallpaper on the lock screen. */
+    val useOnLockScreen: () -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
     val close: () -> Unit,
@@ -87,6 +89,7 @@ fun SettingsScreen(
     hasPhoto: Boolean,
     photoVersion: Long,
     thumbnail: suspend (WallpaperKind, Int, Int) -> Bitmap?,
+    lockNote: String?,
     isDefaultHome: Boolean,
     lists: SettingsLists,
     actions: SettingsActions,
@@ -130,6 +133,23 @@ fun SettingsScreen(
         }
 
         LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent)
+
+        Section("Lock screen") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText(
+                    "Use this wallpaper on the lock screen too",
+                    style = Dot.label.copy(fontSize = 14.sp),
+                    modifier = Modifier.weight(1f),
+                )
+                Gap(10.dp)
+                Chip("Set", selected = true, accent = accent, tag = "useOnLock", onClick = actions.useOnLockScreen)
+            }
+            BasicText(
+                lockNote ?: "The lock screen clock stays your phone's own. Undo any time in the phone's wallpaper settings.",
+                style = Dot.label.copy(color = Dot.Muted),
+                modifier = Modifier.testTag("lockNote"),
+            )
+        }
 
         AppListSection("Home apps", lists.favorites, actions.removeFavorite)
         AppListSection("Dock", lists.dock, actions.removeDock)

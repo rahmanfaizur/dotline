@@ -1,5 +1,6 @@
 package dev.rahmanfaizur.dotline.data
 
+import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -67,6 +68,21 @@ class Wallpapers(context: Context) {
             val photo = if (kind == WallpaperKind.Photo || kind == WallpaperKind.Halftone) loadPhoto() else null
             WallpaperArt.render(kind, w, h, accent, lock, photo).also { photo?.recycle() }
         }
+
+    /**
+     * Sets the lock-screen wallpaper to the lock variant of [kind] (or plain black).
+     * Uses the "set wallpaper" permission, which can only change the picture, never read it.
+     */
+    suspend fun setLockScreen(kind: WallpaperKind, accent: Int, w: Int, h: Int): Boolean = withContext(Dispatchers.Default) {
+        runCatching {
+            val photo = if (kind == WallpaperKind.Photo || kind == WallpaperKind.Halftone) loadPhoto() else null
+            val bmp = WallpaperArt.render(kind, w, h, accent, lock = true, photo = photo)
+                ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLACK) }
+            photo?.recycle()
+            WallpaperManager.getInstance(app).setBitmap(bmp, null, true, WallpaperManager.FLAG_LOCK)
+            bmp.recycle()
+        }.isSuccess
+    }
 
     private companion object {
         const val MAX_SIDE = 2400

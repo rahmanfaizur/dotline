@@ -199,6 +199,7 @@ private fun Launcher(
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
     var menuNote by remember { mutableStateOf<String?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var lockNote by remember { mutableStateOf<String?>(null) }
     val focus = LocalFocusManager.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
@@ -380,6 +381,7 @@ private fun Launcher(
                 hasPhoto = app.wallpapers.hasPhoto,
                 photoVersion = photoVersion,
                 thumbnail = { k, w, h -> app.wallpapers.thumbnail(k, accentArgb, w, h) },
+                lockNote = lockNote,
                 isDefaultHome = home.isDefault,
                 lists = SettingsLists(
                     favorites = resolve(favoriteKeys),
@@ -402,6 +404,13 @@ private fun Launcher(
                     },
                     pickPhoto = pickPhoto,
                     setTileStyle = { st -> app.appScope.launch { store.setTileStyle(st) } },
+                    useOnLockScreen = {
+                        lockNote = "Setting…"
+                        app.appScope.launch {
+                            val ok = app.wallpapers.setLockScreen(settings.wallpaper, accentArgb, screen.width, screen.height)
+                            lockNote = if (ok) "Done. Lock your phone to see it." else "Your phone didn't allow it. Set it from the phone's wallpaper settings instead."
+                        }
+                    },
                     setAsHome = home.ask,
                     changeHome = home.openSettings,
                     close = { settingsOpen = false },

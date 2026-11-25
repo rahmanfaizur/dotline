@@ -154,4 +154,14 @@ class LauncherUiTest {
             now.wallpaper == WallpaperKind.Sunset && now.tileStyle == TileStyle.Glass
         }
     }
+
+    @Test fun setUsesWallpaperOnLockScreen() {
+        runBlocking { app.settings.setWallpaper(WallpaperKind.DotField) }
+        val lockBefore = android.app.WallpaperManager.getInstance(app).getWallpaperId(android.app.WallpaperManager.FLAG_LOCK)
+        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("useOnLock").performScrollTo().performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Done. Lock your phone to see it.")).fetchSemanticsNodes().isNotEmpty() }
+        val lockAfter = android.app.WallpaperManager.getInstance(app).getWallpaperId(android.app.WallpaperManager.FLAG_LOCK)
+        assertNotEquals(lockBefore, lockAfter)
+    }
 }
