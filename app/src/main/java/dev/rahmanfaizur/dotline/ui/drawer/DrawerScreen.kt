@@ -101,6 +101,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.platform.LocalDensity
 
 /**
  * All apps. Empty search: A–Z grid with a big letter for the section you're in and a
@@ -378,7 +383,7 @@ private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Mo
             }
 
             LetterRail(
-                letters = remember(sections) { sections.map { it.letter } },
+                available = remember(sections) { sections.map { it.letter } },
                 current = current,
                 onPick = { letter -> firstIndex[letter]?.let { scope.launch { gridState.scrollToItem(it) } } },
                 onScrub = { scrubbing = it },
@@ -387,71 +392,130 @@ private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Mo
     }
 }
 
+/** The full rail: A–Z, plus # when some app names start with a digit or symbol. */
+private fun railLetters(available: List<Char>): List<Char> =
+    ('A'..'Z').toList() + (if (available.any { it !in 'A'..'Z' }) listOf('#') else emptyList())
+
+/** A letter with no apps jumps to the next one that has apps (or the last one before it). */
+private fun resolve(letter: Char, rail: List<Char>, available: Set<Char>): Char? {
+    if (letter in available) return letter
+    val i = rail.indexOf(letter)
+    return rail.drop(i + 1).firstOrNull { it in available } ?: rail.take(i).lastOrNull { it in available }
+}
+
 /**
- * A–Z down the right edge. Tap a letter, or keep your finger on the rail and slide: the list
- * follows the letter under your finger, with a light tick each time it changes.
+ * A–Z on the right edge. Tap a letter, or keep your finger on it and slide: letters near the
+ * finger swell like a dock, a big dot letter follows beside it, and the list jumps along with a
+ * light tick per letter. Letters with no apps are dimmed and jump to the nearest one that has.
  */
 @Composable
-private fun LetterRail(letters: List<Char>, current: Char, onPick: (Char) -> Unit, onScrub: (Char?) -> Unit) {
+private fun LetterRail(available: List<Char>, current: Char, onPick: (Char) -> Unit, onScrub: (Char?) -> Unit) {
     val accent = LocalAccent.current
     val haptics = LocalHapticFeedback.current
+    val density = LocalDensity.current
     val pick by rememberUpdatedState(onPick)
     val scrub by rememberUpdatedState(onScrub)
-    // Vertical centre of each letter; a plain map, so layout doesn't recompose anything.
-    val centers = remember(letters) { HashMap<Char, Float>() }
+    val rail = remember(available) { railLetters(available) }
+    val has = remember(available) { available.toSet() }
+    // Letter centres and the finger, in rail coordinates. Plain/draw-phase state: sliding a
+    // finger never recomposes the rail, only redraws it.
+    val centers = remember(rail) { HashMap<Char, Float>() }
+    var fingerY by remember { mutableFloatStateOf(Float.NaN) }
+    var bubble by remember { mutableStateOf<Char?>(null) }
+    var railTop by remember { mutableFloatStateOf(0f) } // the rail is centred; where its top sits
+    val reach = with(density) { 56.dp.toPx() }
+    val pop = with(density) { 16.dp.toPx() }
 
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(26.dp)
-            .testTag("letterStrip")
-            .pointerInput(letters) {
-                awaitEachGesture {
-                    var last: Char? = null
-                    fun under(y: Float) {
-                        val letter = centers.minByOrNull { abs(it.value - y) }?.key ?: return
-                        if (letter != last) {
-                            last = letter
-                            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                            scrub(letter)
-                            pick(letter)
+    Box(Modifier.fillMaxHeight().width(30.dp), contentAlignment = Alignment.Center) {
+        Column(
+            modifier = Modifier
+                .onGloballyPositioned { railTop = it.positionInParent().y }
+                .background(if (bubble != null) Color(0x2EFFFFFF) else Color(0x14FFFFFF), RoundedCornerShape(50))
+                .testTag("letterStrip")
+                .pointerInput(rail) {
+                    awaitEachGesture {
+                        var last: Char? = null
+                        fun under(y: Float) {
+                            fingerY = y
+                            val raw = centers.minByOrNull { abs(it.value - y) }?.key ?: return
+                            val letter = resolve(raw, rail, has) ?: return
+                            bubble = letter
+                            if (letter != last) {
+                                last = letter
+                                haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                scrub(letter)
+                                pick(letter)
+                            }
                         }
-                    }
-                    val down = awaitFirstDown()
-                    down.consume()
-                    under(down.position.y)
-                    try {
-                        while (true) {
-                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-                            change.consume()
-                            under(change.position.y)
+                        val down = awaitFirstDown()
+                        down.consume()
+                        under(down.position.y)
+                        try {
+                            while (true) {
+                                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) break
+                                change.consume()
+                                under(change.position.y)
+                            }
+                        } finally {
+                            fingerY = Float.NaN
+                            bubble = null
+                            scrub(null)
                         }
-                    } finally {
-                        scrub(null)
                     }
                 }
+                .padding(vertical = 8.dp, horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            rail.forEach { letter ->
+                val on = letter == current
+                BasicText(
+                    letter.toString(),
+                    style = Dot.caption.copy(
+                        color = when {
+                            on -> accent
+                            letter in has -> Dot.Ink
+                            else -> Dot.Faint
+                        },
+                        fontSize = 10.sp,
+                        textAlign = TextAlign.Center,
+                    ),
+                    modifier = Modifier
+                        .width(24.dp)
+                        .onGloballyPositioned { centers[letter] = it.positionInParent().y + it.size.height / 2f }
+                        .graphicsLayer {
+                            // Dock-style magnify around the finger.
+                            val c = centers[letter]
+                            val d = if (fingerY.isNaN() || c == null) Float.MAX_VALUE else abs(c - fingerY)
+                            val t = (1f - d / reach).coerceIn(0f, 1f)
+                            val grow = 1f + 0.9f * t * t
+                            scaleX = grow; scaleY = grow
+                            translationX = -pop * t * t
+                        }
+                        .semantics {
+                            role = Role.Button
+                            onClick(label = "Jump to $letter") { resolve(letter, rail, has)?.let(pick); true }
+                        }
+                        .padding(vertical = 1.5.dp),
+                )
             }
-            .padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        letters.forEach { letter ->
-            val on = letter == current
-            BasicText(
-                letter.toString(),
-                style = Dot.caption.copy(
-                    color = if (on) accent else Dot.Muted,
-                    fontSize = if (on) 13.sp else 11.sp,
-                    textAlign = TextAlign.Center,
-                ),
-                modifier = Modifier
-                    .onGloballyPositioned { centers[letter] = it.positionInParent().y + it.size.height / 2f }
-                    .semantics {
-                        role = Role.Button
-                        onClick(label = "Jump to $letter") { pick(letter); true }
-                    },
-            )
+        }
+
+        // The big letter that follows the finger, off to the left of the rail.
+        val b = bubble
+        if (b != null) {
+            val size = 68.dp
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset { IntOffset(-(size.roundToPx() + 18.dp.roundToPx()), 0) }
+                    .graphicsLayer { translationY = railTop + fingerY - size.toPx() / 2f }
+                    .requiredSize(size) // wider than the rail it sits beside, so ignore its width
+                    .background(Dot.Surface, CircleShape)
+                    .border(1.dp, accent, CircleShape)
+                    .testTag("railBubble"),
+                contentAlignment = Alignment.Center,
+            ) { BasicText(b.toString(), style = Dot.dots(40, accent)) }
         }
     }
 }

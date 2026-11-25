@@ -144,6 +144,7 @@ class LauncherUiTest {
         }
         rule.waitForIdle()
         assertNotEquals(first, sectionLetter())
+        rule.onNodeWithTag("railBubble").assertExists() // the big letter follows the finger
         rule.onNodeWithTag("letterStrip").performTouchInput { up() }
     }
 
