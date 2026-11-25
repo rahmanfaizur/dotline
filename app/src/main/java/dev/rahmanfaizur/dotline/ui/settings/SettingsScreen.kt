@@ -152,10 +152,9 @@ fun SettingsScreen(
             }
 
             Section("Home and lock screen") {
-                if (isDefaultHome) {
-                    SettingRow("Dotline is your home screen") {
-                        Chip("Change", selected = false, accent = accent, tag = "changeHome", onClick = actions.changeHome)
-                    }
+                // Always here, so switching launchers (or back to Realme's) is one tap away.
+                SettingRow(if (isDefaultHome) "Default launcher: Dotline" else "Default launcher: another app") {
+                    Chip("Change", selected = false, accent = accent, tag = "changeHome", onClick = actions.changeHome)
                 }
                 Caption("Clock")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
