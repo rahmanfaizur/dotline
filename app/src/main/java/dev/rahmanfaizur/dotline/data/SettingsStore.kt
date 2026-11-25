@@ -20,6 +20,9 @@ enum class ClockMode { System, H24, H12 }
 /** Behind the app list. On a black wallpaper all of them show as black. */
 enum class DrawerBackground { Frosted, Dimmed, Sheet, Black }
 
+/** Text colour on home tiles. Auto picks black only on see-through tiles over a bright wallpaper. */
+enum class TextTone { Auto, White, Black }
+
 enum class TileStyle { Smoke, Glass, Tinted, Outline, Floating, Solid }
 
 /**
@@ -38,6 +41,7 @@ data class LauncherSettings(
     val wallpaper: WallpaperKind = WallpaperKind.Black,
     val tileStyle: TileStyle = TileStyle.Smoke,
     val drawerBackground: DrawerBackground = DrawerBackground.Frosted,
+    val textTone: TextTone = TextTone.Auto,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -65,6 +69,7 @@ class SettingsStore(context: Context) {
     suspend fun setShowQuickPage(show: Boolean) = store.edit { it[QUICK_PAGE] = show }
     suspend fun setWallpaper(kind: WallpaperKind) = store.edit { it[WALLPAPER] = kind.name }
     suspend fun setTileStyle(style: TileStyle) = store.edit { it[TILE_STYLE] = style.name }
+    suspend fun setTextTone(tone: TextTone) = store.edit { it[TEXT_TONE] = tone.name }
     suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
     suspend fun setHomePromptDismissed(dismissed: Boolean) = store.edit { it[HOME_PROMPT_DISMISSED] = dismissed }
 
@@ -81,6 +86,7 @@ class SettingsStore(context: Context) {
         tileStyle = this[TILE_STYLE]?.let { runCatching { TileStyle.valueOf(it) }.getOrNull() } ?: TileStyle.Smoke,
         drawerBackground = this[DRAWER_BG]?.let { runCatching { DrawerBackground.valueOf(it) }.getOrNull() }
             ?: DrawerBackground.Frosted,
+        textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
     private fun List<String>.join() = joinToString("\n")
@@ -98,6 +104,7 @@ class SettingsStore(context: Context) {
         val WALLPAPER = stringPreferencesKey("wallpaper")
         val TILE_STYLE = stringPreferencesKey("tile_style")
         val DRAWER_BG = stringPreferencesKey("drawer_bg")
+        val TEXT_TONE = stringPreferencesKey("text_tone")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

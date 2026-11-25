@@ -178,6 +178,14 @@ object WallpaperArt {
         if (lock) dot(c, cx, h * 0.6f, w * 0.06f, accent)
     }
 
+    /** Average brightness of the top 70% of [small] (where the tiles are), 0..1. */
+    fun brightness(small: Bitmap): Float {
+        val h = (small.height * 0.7f).toInt().coerceAtLeast(1)
+        val px = IntArray(small.width * h)
+        small.getPixels(px, 0, small.width, 0, 0, small.width, h)
+        return if (px.isEmpty()) 0f else px.sumOf { Halftone.luma(it).toDouble() }.toFloat() / px.size
+    }
+
     /**
      * A small, blurred copy for frosted-glass tiles. Made once per wallpaper change;
      * drawing it scaled up is what keeps scrolling smooth.

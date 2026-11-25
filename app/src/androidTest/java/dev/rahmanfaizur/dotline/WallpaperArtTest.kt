@@ -66,4 +66,28 @@ class WallpaperArtTest {
         assertEquals(135, f.width)
         assertEquals(300, f.height)
     }
+
+    @Test fun brightnessReadsLightAndDark() {
+        val white = Bitmap.createBitmap(20, 40, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
+        val black = Bitmap.createBitmap(20, 40, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLACK) }
+        assertTrue(WallpaperArt.brightness(white) > 0.95f)
+        assertTrue(WallpaperArt.brightness(black) < 0.05f)
+    }
+
+    @Test fun autoTextGoesBlackOnlyOnBrightSeeThroughTiles() {
+        val img = androidx.compose.ui.graphics.ImageBitmap(1, 1)
+        val bright = dev.rahmanfaizur.dotline.ui.common.Backdrop(img, img, brightness = 0.85f)
+        val dark = dev.rahmanfaizur.dotline.ui.common.Backdrop(img, img, brightness = 0.2f)
+        val auto = dev.rahmanfaizur.dotline.data.TextTone.Auto
+        val t = dev.rahmanfaizur.dotline.data.TileStyle.entries.associateBy { it.name }
+        fun dark(style: String, b: dev.rahmanfaizur.dotline.ui.common.Backdrop?) =
+            dev.rahmanfaizur.dotline.ui.common.useDarkText(auto, t.getValue(style), b)
+        assertTrue(dark("Glass", bright))
+        assertTrue(dark("Floating", bright))
+        assertTrue(!dark("Smoke", bright))   // dark tiles keep white text
+        assertTrue(!dark("Glass", dark))     // dark wallpaper keeps white text
+        assertTrue(!dark("Glass", null))     // plain black home
+        assertTrue(dev.rahmanfaizur.dotline.ui.common.useDarkText(
+            dev.rahmanfaizur.dotline.data.TextTone.Black, t.getValue("Smoke"), null))
+    }
 }

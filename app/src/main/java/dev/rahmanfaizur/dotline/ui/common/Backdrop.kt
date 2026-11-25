@@ -29,13 +29,25 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import dev.rahmanfaizur.dotline.data.TextTone
 import dev.rahmanfaizur.dotline.data.TileStyle
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** The wallpaper behind home, plus its small blurred copy used by glass tiles. */
-class Backdrop(val full: ImageBitmap, val frosted: ImageBitmap)
+/** The wallpaper behind home, its small blurred copy used by glass tiles, and its brightness (0..1). */
+class Backdrop(val full: ImageBitmap, val frosted: ImageBitmap, val brightness: Float = 0f)
+
+/**
+ * Whether home tiles should use black text. Auto only does it where the wallpaper itself
+ * shows through bright (clear glass, outline, floating); dark tiles always keep white.
+ */
+fun useDarkText(tone: TextTone, style: TileStyle, backdrop: Backdrop?): Boolean = when (tone) {
+    TextTone.White -> false
+    TextTone.Black -> true
+    TextTone.Auto -> backdrop != null && backdrop.brightness > 0.6f &&
+        style in setOf(TileStyle.Glass, TileStyle.Outline, TileStyle.Floating)
+}
 
 /** Where the wallpaper is drawn, so a tile can work out which part of it sits behind the tile. */
 class BackdropArea {

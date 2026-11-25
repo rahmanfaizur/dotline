@@ -16,8 +16,11 @@ import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** A rendered wallpaper plus its small blurred copy for glass tiles. */
-class WallpaperImage(val full: Bitmap, val frosted: Bitmap)
+/**
+ * A rendered wallpaper, its small blurred copy for glass tiles, and how bright the
+ * upper part (where the tiles sit) is, from 0 (black) to 1 (white).
+ */
+class WallpaperImage(val full: Bitmap, val frosted: Bitmap, val brightness: Float)
 
 /**
  * The user's picked photo (a private copy inside the app) and the rendered wallpapers.
@@ -61,7 +64,10 @@ class Wallpapers(context: Context) {
         val photo = if (kind == WallpaperKind.Photo || kind == WallpaperKind.Halftone) loadPhoto() else null
         val full = WallpaperArt.render(kind, w, h, accent, lock = false, photo = photo)
         photo?.recycle()
-        full?.let { WallpaperImage(it, WallpaperArt.frosted(it)) }
+        full?.let {
+            val frosted = WallpaperArt.frosted(it)
+            WallpaperImage(it, frosted, WallpaperArt.brightness(frosted))
+        }
     }
 
     /** A small preview for the settings screen. */

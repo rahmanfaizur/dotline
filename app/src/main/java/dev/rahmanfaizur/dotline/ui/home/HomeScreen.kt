@@ -138,14 +138,14 @@ fun HomeScreen(
             Tile(Modifier.weight(1f).height(112.dp).tileTap("Battery settings") { onTile(Shortcut.Battery) }) {
                 Caption(if (state.battery?.charging == true) "Charging" else "Battery")
                 BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(38))
-                DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = Dot.Ink)
+                DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = Dot.ink)
             }
             Tile(Modifier.weight(1f).height(112.dp).tileTap("Open alarms") { onTile(Shortcut.Alarms) }) {
                 Caption("Alarm")
                 BasicText(state.nextAlarm?.let(::time) ?: "OFF", style = Dot.dots(38))
                 Caption(
                     state.nextAlarm?.let { DateFormat.format("EEE", Date(it)).toString() } ?: "None set",
-                    color = Dot.Faint,
+                    color = Dot.faint,
                 )
             }
         }
@@ -161,7 +161,7 @@ fun HomeScreen(
             Tile(Modifier.fillMaxWidth()) {
                 Caption("Your apps go here")
                 Gap(4.dp)
-                BasicText("Long-press any app → Add to home", style = Dot.label.copy(color = Dot.Muted))
+                BasicText("Long-press any app → Add to home", style = Dot.label.copy(color = Dot.muted))
             }
         }
 
@@ -176,7 +176,7 @@ fun HomeScreen(
                 .testTag("searchPill")
                 .padding(horizontal = 18.dp, vertical = 14.dp),
         ) {
-            BasicText("Search apps", style = Dot.label.copy(color = Dot.Muted, fontSize = 15.sp))
+            BasicText("Search apps", style = Dot.label.copy(color = Dot.muted, fontSize = 15.sp))
         }
 
         // Dock
@@ -235,7 +235,7 @@ private fun SetHomeTile(prompt: SetHomePrompt, accent: androidx.compose.ui.graph
         )
         BasicText(
             "Not now",
-            style = Dot.label.copy(color = Dot.Muted, fontSize = 13.sp),
+            style = Dot.label.copy(color = Dot.muted, fontSize = 13.sp),
             modifier = Modifier.clickable(onClick = prompt.notNow).testTag("notNow").padding(horizontal = 8.dp, vertical = 8.dp),
         )
         BasicText(

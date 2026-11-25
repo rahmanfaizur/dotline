@@ -93,12 +93,12 @@ fun QuickPage(
                 Caption("Free storage")
                 // Whole numbers only: the dot font has no good-looking decimal point.
                 BasicText(storage?.let { "${Math.round(it.freeBytes / 1e9)}GB" } ?: "--", style = Dot.dots(34))
-                Caption(storage?.let { "${Sizes.percentUsed(it.freeBytes, it.totalBytes)}% used" } ?: "", color = Dot.Faint)
+                Caption(storage?.let { "${Sizes.percentUsed(it.freeBytes, it.totalBytes)}% used" } ?: "", color = Dot.faint)
             }
             Tile(Modifier.weight(1f).height(112.dp).tileTap("Memory details") { onTile(Shortcut.Memory) }.testTag("ramTile")) {
                 Caption("RAM in use")
                 BasicText(memory?.let { "${Sizes.percentUsed(it.totalBytes - it.usedBytes, it.totalBytes)}%" } ?: "--", style = Dot.dots(34))
-                Caption(memory?.let { "${Sizes.short(it.usedBytes)} of ${Sizes.short(it.totalBytes)}" } ?: "", color = Dot.Faint)
+                Caption(memory?.let { "${Sizes.short(it.usedBytes)} of ${Sizes.short(it.totalBytes)}" } ?: "", color = Dot.faint)
             }
         }
 
@@ -137,7 +137,7 @@ fun QuickPage(
                 .padding(vertical = 14.dp, horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicText("⚙", style = Dot.label.copy(color = Dot.Muted, fontSize = 16.sp))
+            BasicText("⚙", style = Dot.label.copy(color = Dot.muted, fontSize = 16.sp))
             Gap(10.dp)
             Caption("Launcher settings")
         }
@@ -162,7 +162,7 @@ private fun CalendarTile(modifier: Modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 grid.weekdayInitials.forEach { c ->
-                    BasicText(c.toString(), style = Dot.caption.copy(fontSize = 10.sp, color = Dot.Faint, textAlign = TextAlign.Center), modifier = Modifier.size(width = 20.dp, height = 14.dp))
+                    BasicText(c.toString(), style = Dot.caption.copy(fontSize = 10.sp, color = Dot.faint, textAlign = TextAlign.Center), modifier = Modifier.size(width = 20.dp, height = 14.dp))
                 }
             }
             cells.chunked(7).forEach { week ->
@@ -174,7 +174,7 @@ private fun CalendarTile(modifier: Modifier) {
                                 val isToday = day == grid.today
                                 val color = when {
                                     isToday -> accent
-                                    grid.today != null && day < grid.today -> Dot.Muted
+                                    grid.today != null && day < grid.today -> Dot.muted
                                     else -> Dot.SurfaceHigh
                                 }
                                 Box(Modifier.size(if (isToday) 11.dp else 8.dp).background(color, CircleShape))

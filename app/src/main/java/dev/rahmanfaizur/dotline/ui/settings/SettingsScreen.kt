@@ -51,7 +51,11 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import dev.rahmanfaizur.dotline.data.DrawerBackground
+import dev.rahmanfaizur.dotline.data.TextTone
 import dev.rahmanfaizur.dotline.data.TileStyle
+import dev.rahmanfaizur.dotline.ui.common.useDarkText
+import dev.rahmanfaizur.dotline.ui.theme.LocalDarkText
+import androidx.compose.runtime.CompositionLocalProvider
 import dev.rahmanfaizur.dotline.data.WallpaperKind
 import dev.rahmanfaizur.dotline.ui.common.Backdrop
 import dev.rahmanfaizur.dotline.ui.common.WallpaperArea
@@ -77,6 +81,7 @@ class SettingsActions(
     val pickPhoto: (WallpaperKind) -> Unit,
     val setTileStyle: (TileStyle) -> Unit,
     val setDrawerBackground: (DrawerBackground) -> Unit,
+    val setTextTone: (TextTone) -> Unit,
     /** Puts the lock-screen version of the chosen wallpaper on the lock screen. */
     val useOnLockScreen: () -> Unit,
     val setAsHome: () -> Unit,
@@ -258,7 +263,7 @@ private fun LookSection(
 ) {
     Section("Look") {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            LookPreview(backdrop, settings.tileStyle)
+            LookPreview(backdrop, settings.tileStyle, useDarkText(settings.textTone, settings.tileStyle, backdrop))
         }
 
         Caption("Wallpaper")
@@ -293,6 +298,16 @@ private fun LookSection(
             BasicText("On a black wallpaper these tiles show as solid.", style = Dot.label.copy(color = Dot.Muted))
         }
 
+        Caption("Text on tiles")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(TextTone.Auto to "Auto", TextTone.White to "White", TextTone.Black to "Black").forEach { (tone, name) ->
+                Chip(name, settings.textTone == tone, accent, tag = "text:$name") { actions.setTextTone(tone) }
+            }
+        }
+        if (settings.textTone == TextTone.Black && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Tinted, TileStyle.Solid)) {
+            BasicText("Black text is hard to read on dark tiles. Try Clear glass, Outline or Floating.", style = Dot.label.copy(color = Dot.Muted))
+        }
+
         Caption("App list")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             DrawerNames.forEach { (bg, name) ->
@@ -304,7 +319,8 @@ private fun LookSection(
 
 /** A tiny home screen drawn with the real wallpaper and tile code. */
 @Composable
-private fun LookPreview(backdrop: Backdrop?, style: TileStyle) {
+private fun LookPreview(backdrop: Backdrop?, style: TileStyle, darkText: Boolean) {
+    CompositionLocalProvider(LocalDarkText provides darkText) {
     WallpaperArea(
         backdrop = backdrop,
         style = style,
@@ -335,6 +351,7 @@ private fun LookPreview(backdrop: Backdrop?, style: TileStyle) {
             Box(Modifier.fillMaxWidth().height(16.dp).tile(RoundedCornerShape(50)))
             Box(Modifier.fillMaxWidth().height(22.dp).tile(RoundedCornerShape(50)))
         }
+    }
     }
 }
 

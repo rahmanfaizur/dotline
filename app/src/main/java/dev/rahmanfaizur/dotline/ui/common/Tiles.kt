@@ -52,7 +52,7 @@ fun Tile(
 
 /** Small uppercase grey label, e.g. "BATTERY". */
 @Composable
-fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Dot.Muted) {
+fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Dot.muted) {
     BasicText(text.uppercase(), style = Dot.caption.copy(color = color), modifier = modifier)
 }
 

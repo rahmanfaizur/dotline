@@ -2,6 +2,8 @@ package dev.rahmanfaizur.dotline.ui.theme
 
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -63,13 +65,30 @@ object Dot {
     var onWallpaper by mutableStateOf(false)
 
     private val TextShadow = Shadow(Color(0x99000000), Offset(0f, 2f), blurRadius = 6f)
-    private val shadow get() = if (onWallpaper) TextShadow else null
+    private val InkDark = Color(0xFF101010)
+    private val MutedDark = Color(0xFF3A3A3A)
+    private val FaintDark = Color(0xFF5C5C5C)
 
-    val label get() = TextStyle(color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = shadow)
-    val caption get() = TextStyle(color = Muted, fontFamily = Mono, fontSize = 11.sp, letterSpacing = 1.sp, shadow = shadow)
-    fun dots(size: Int, color: Color = Ink) =
+    /** Text colours that flip to dark where [LocalDarkText] is on (home tiles over bright wallpapers). */
+    val ink: Color @Composable @ReadOnlyComposable get() = if (LocalDarkText.current) InkDark else Ink
+    val muted: Color @Composable @ReadOnlyComposable get() = if (LocalDarkText.current) MutedDark else Muted
+    val faint: Color @Composable @ReadOnlyComposable get() = if (LocalDarkText.current) FaintDark else Faint
+
+    private val shadow: Shadow? @Composable @ReadOnlyComposable
+        get() = if (onWallpaper && !LocalDarkText.current) TextShadow else null
+
+    val label: TextStyle @Composable @ReadOnlyComposable
+        get() = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = shadow)
+    val caption: TextStyle @Composable @ReadOnlyComposable
+        get() = TextStyle(color = muted, fontFamily = Mono, fontSize = 11.sp, letterSpacing = 1.sp, shadow = shadow)
+
+    @Composable @ReadOnlyComposable
+    fun dots(size: Int, color: Color = ink) =
         TextStyle(color = color, fontFamily = DotFont, fontWeight = FontWeight.Black, fontSize = size.sp, shadow = shadow)
 }
+
+/** True on home tiles when they should use black text (see Settings → Look → Text). */
+val LocalDarkText = staticCompositionLocalOf { false }
 
 /** Accent colour chosen in Settings. */
 val LocalAccent = staticCompositionLocalOf { Dot.Red }

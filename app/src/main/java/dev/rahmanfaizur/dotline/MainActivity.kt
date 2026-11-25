@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.IntSize
 import dev.rahmanfaizur.dotline.data.WallpaperKind
 import dev.rahmanfaizur.dotline.ui.common.Backdrop
 import dev.rahmanfaizur.dotline.ui.common.WallpaperArea
+import dev.rahmanfaizur.dotline.ui.common.useDarkText
+import dev.rahmanfaizur.dotline.ui.theme.LocalDarkText
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -257,7 +259,7 @@ private fun Launcher(
     val backdrop by produceState<Backdrop?>(null, settings.wallpaper, accentArgb, photoVersion, screen) {
         value = if (screen.width == 0) null else {
             app.wallpapers.render(settings.wallpaper, accentArgb, screen.width, screen.height)
-                ?.let { Backdrop(it.full.asImageBitmap(), it.frosted.asImageBitmap()) }
+                ?.let { Backdrop(it.full.asImageBitmap(), it.frosted.asImageBitmap(), it.brightness) }
         }
     }
     SideEffect { Dot.onWallpaper = backdrop != null }
@@ -271,6 +273,8 @@ private fun Launcher(
         // Back does nothing, like any launcher (it used to close Dotline).
         BackHandler(enabled = true) {}
 
+        val darkText = useDarkText(settings.textTone, settings.tileStyle, backdrop)
+        CompositionLocalProvider(LocalDarkText provides darkText) {
         HorizontalPager(state = pager, beyondViewportPageCount = 0, key = { it }) { page ->
             if (page == homePage) {
                 HomeScreen(
@@ -306,6 +310,7 @@ private fun Launcher(
                     onTile = { app.shortcuts.open(it) },
                 )
             }
+        }
         }
         // Back from the quick page goes home.
         BackHandler(enabled = !drawerOpen && pager.currentPage != homePage) {
@@ -410,6 +415,7 @@ private fun Launcher(
                     pickPhoto = pickPhoto,
                     setTileStyle = { st -> app.appScope.launch { store.setTileStyle(st) } },
                     setDrawerBackground = { bg -> app.appScope.launch { store.setDrawerBackground(bg) } },
+                    setTextTone = { t -> app.appScope.launch { store.setTextTone(t) } },
                     useOnLockScreen = {
                         lockNote = "Getting it ready…"
                         app.appScope.launch {
