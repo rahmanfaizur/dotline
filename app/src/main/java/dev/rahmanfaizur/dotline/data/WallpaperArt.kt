@@ -46,7 +46,9 @@ object WallpaperArt {
         return bmp
     }
 
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    // One brush per thread: thumbnails render in parallel, and a shared Paint mixed their colours.
+    private val brushes = ThreadLocal.withInitial { Paint(Paint.ANTI_ALIAS_FLAG) }
+    private val paint: Paint get() = brushes.get()!!
 
     /** Centre-crop [src] to fill the screen, like a normal wallpaper. */
     private fun fill(c: Canvas, src: Bitmap, w: Int, h: Int) {

@@ -90,4 +90,19 @@ class WallpaperArtTest {
         assertTrue(dev.rahmanfaizur.dotline.ui.common.useDarkText(
             dev.rahmanfaizur.dotline.data.TextTone.Black, t.getValue("Smoke"), null))
     }
+
+    @Test fun renderingInParallelKeepsColoursApart() {
+        val alone = pixels(WallpaperArt.render(WallpaperKind.Sunset, 108, 240, red, false, null)!!)
+        val threads = (1..6).map { i ->
+            Thread {
+                repeat(5) {
+                    val kind = if (i % 2 == 0) WallpaperKind.Glow else WallpaperKind.Horizon
+                    WallpaperArt.render(kind, 108, 240, red, true, null)
+                }
+            }
+        }
+        threads.forEach { it.start() }
+        repeat(5) { assertTrue(alone.contentEquals(pixels(WallpaperArt.render(WallpaperKind.Sunset, 108, 240, red, false, null)!!))) }
+        threads.forEach { it.join() }
+    }
 }
