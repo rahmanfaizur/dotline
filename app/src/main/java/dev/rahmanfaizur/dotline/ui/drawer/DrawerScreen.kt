@@ -41,8 +41,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -53,11 +53,14 @@ import androidx.compose.ui.unit.sp
 import dev.rahmanfaizur.dotline.data.AppEntry
 import dev.rahmanfaizur.dotline.domain.AppIndex
 import dev.rahmanfaizur.dotline.ui.AppIcon
+import dev.rahmanfaizur.dotline.ui.home.AppActions
+import dev.rahmanfaizur.dotline.ui.home.appClicks
 import dev.rahmanfaizur.dotline.ui.theme.Dot
+import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
 
 /**
- * All apps. Empty search: A–Z grid with a big red letter for the section you're in and a
+ * All apps. Empty search: A–Z grid with a big letter for the section you're in and a
  * letter strip to jump. Typing: ranked results, Enter opens the top one.
  */
 @Composable
@@ -66,7 +69,7 @@ fun DrawerScreen(
     query: String,
     onQueryChange: (String) -> Unit,
     focusSearch: Boolean,
-    onLaunch: (AppEntry) -> Unit,
+    actions: AppActions,
     modifier: Modifier = Modifier,
 ) {
     val results = remember(apps, query) { AppIndex.search(apps, query) { it.label } }
@@ -84,6 +87,7 @@ fun DrawerScreen(
         modifier
             .fillMaxSize()
             .background(Dot.Black)
+            .testTag("drawer")
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
@@ -93,14 +97,14 @@ fun DrawerScreen(
         SearchField(
             query = query,
             onQueryChange = onQueryChange,
-            onGo = { results.firstOrNull()?.let(onLaunch) },
+            onGo = { results.firstOrNull()?.let(actions.launch) },
             focusRequester = focusRequester,
         )
         Spacer(Modifier.height(12.dp))
         if (query.isBlank()) {
-            AlphabetGrid(apps, onLaunch, Modifier.weight(1f))
+            AlphabetGrid(apps, actions, Modifier.weight(1f))
         } else {
-            SearchResults(results, onLaunch, Modifier.weight(1f))
+            SearchResults(results, actions, Modifier.weight(1f))
         }
     }
 }
@@ -117,7 +121,7 @@ private fun SearchField(
         onValueChange = onQueryChange,
         singleLine = true,
         textStyle = TextStyle(color = Dot.Ink, fontSize = 15.sp),
-        cursorBrush = SolidColor(Dot.Red),
+        cursorBrush = SolidColor(LocalAccent.current),
         keyboardOptions = KeyboardOptions(
             imeAction = ImeAction.Go,
             autoCorrectEnabled = false,
@@ -126,7 +130,8 @@ private fun SearchField(
         keyboardActions = KeyboardActions(onGo = { onGo() }),
         modifier = Modifier
             .fillMaxWidth()
-            .focusRequester(focusRequester),
+            .focusRequester(focusRequester)
+            .testTag("searchField"),
         decorationBox = { inner ->
             Row(
                 Modifier
@@ -151,10 +156,11 @@ private fun SearchField(
     )
 }
 
-/** One continuous A–Z grid; the big red letter tells you which section you're in. */
+/** One continuous A–Z grid; the big letter tells you which section you're in. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AlphabetGrid(apps: List<AppEntry>, onLaunch: (AppEntry) -> Unit, modifier: Modifier) {
+private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Modifier) {
+    val accent = LocalAccent.current
     val sections = remember(apps) { AppIndex.sections(apps) { it.label } }
     val ordered = remember(sections) { sections.flatMap { it.items } }
     val letters = remember(sections) { sections.flatMap { s -> s.items.map { s.letter } } }
@@ -164,14 +170,13 @@ private fun AlphabetGrid(apps: List<AppEntry>, onLaunch: (AppEntry) -> Unit, mod
     }
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    val focus = LocalFocusManager.current
 
     val current by remember(letters) {
         derivedStateOf { letters.getOrNull(gridState.firstVisibleItemIndex) ?: ' ' }
     }
 
     Column(modifier) {
-        BasicText(current.toString(), style = Dot.dots(84, Dot.Red), modifier = Modifier.padding(bottom = 4.dp))
+        BasicText(current.toString(), style = Dot.dots(84, accent), modifier = Modifier.padding(bottom = 4.dp))
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
@@ -180,10 +185,7 @@ private fun AlphabetGrid(apps: List<AppEntry>, onLaunch: (AppEntry) -> Unit, mod
             contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            items(ordered.size, key = { ordered[it].key }) { i ->
-                val app = ordered[i]
-                AppCell(app) { focus.clearFocus(); onLaunch(app) }
-            }
+            items(ordered.size, key = { ordered[it].key }) { i -> AppCell(ordered[i], actions) }
         }
 
         FlowRow(
@@ -196,12 +198,10 @@ private fun AlphabetGrid(apps: List<AppEntry>, onLaunch: (AppEntry) -> Unit, mod
                 val on = s.letter == current
                 BasicText(
                     s.letter.toString(),
-                    style = Dot.caption.copy(color = if (on) Dot.Red else Dot.Faint, fontSize = 13.sp, textAlign = TextAlign.Center),
+                    style = Dot.caption.copy(color = if (on) accent else Dot.Faint, fontSize = 13.sp, textAlign = TextAlign.Center),
                     modifier = Modifier
                         .width(24.dp)
-                        .clickable {
-                            firstIndex[s.letter]?.let { scope.launch { gridState.scrollToItem(it) } }
-                        }
+                        .clickable { firstIndex[s.letter]?.let { scope.launch { gridState.scrollToItem(it) } } }
                         .padding(vertical = 6.dp),
                 )
             }
@@ -210,11 +210,11 @@ private fun AlphabetGrid(apps: List<AppEntry>, onLaunch: (AppEntry) -> Unit, mod
 }
 
 @Composable
-private fun AppCell(app: AppEntry, onClick: () -> Unit) {
+private fun AppCell(app: AppEntry, actions: AppActions) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clickable(onClick = onClick)
+            .appClicks(app, actions)
             .padding(vertical = 2.dp),
     ) {
         AppIcon(app, 52.dp)
@@ -230,7 +230,8 @@ private fun AppCell(app: AppEntry, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SearchResults(results: List<AppEntry>, onLaunch: (AppEntry) -> Unit, modifier: Modifier) {
+private fun SearchResults(results: List<AppEntry>, actions: AppActions, modifier: Modifier) {
+    val accent = LocalAccent.current
     if (results.isEmpty()) {
         BasicText("No apps match", style = Dot.caption, modifier = modifier.padding(top = 8.dp))
         return
@@ -245,10 +246,10 @@ private fun SearchResults(results: List<AppEntry>, onLaunch: (AppEntry) -> Unit,
                     .then(
                         if (top) Modifier
                             .background(Dot.Surface, RoundedCornerShape(18.dp))
-                            .border(1.dp, Dot.Red, RoundedCornerShape(18.dp))
+                            .border(1.dp, accent, RoundedCornerShape(18.dp))
                         else Modifier,
                     )
-                    .clickable { onLaunch(app) }
+                    .appClicks(app, actions)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
                 AppIcon(app, if (top) 44.dp else 36.dp)

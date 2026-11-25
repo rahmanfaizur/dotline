@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Privacy: this app requests NO permissions. In particular it has no INTERNET
-  permission, so it cannot send anything off the phone. scripts/check-permissions.sh
-  verifies this on every build.
+  Privacy: this app has no INTERNET permission, so it cannot send anything off the
+  phone. Its only permission opens Android's uninstall confirmation.
+  scripts/check-permissions.sh verifies this on every build.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Lets "Uninstall" open Android's own confirmation screen. Nothing is removed without it. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <!-- Lets LauncherApps list every launchable app (package-visibility rules, Android 11+). -->
     <queries>

@@ -11,6 +11,8 @@ AAPT2="$(ls -d "$SDK"/build-tools/*/aapt2 | sort -V | tail -1)"
 # (AndroidX adds DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION, an app-private
 #  permission that only lets the app's own components talk to each other.)
 ALLOWED=(
+  # Opens Android's "Uninstall this app?" screen; the user must confirm there.
+  "android.permission.REQUEST_DELETE_PACKAGES"
   "dev.rahmanfaizur.dotline.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
   "dev.rahmanfaizur.dotline.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )
