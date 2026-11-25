@@ -227,6 +227,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
                         battery = battery,
                         nextAlarm = nextAlarm,
                         clock = settings.clock,
+                        appsLoaded = apps.isNotEmpty(),
                     ),
                     actions = actions,
                     onOpenApps = { withSearch ->

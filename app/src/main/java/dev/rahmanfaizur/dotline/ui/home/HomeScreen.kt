@@ -54,6 +54,8 @@ class HomeState(
     val battery: BatteryState?,
     val nextAlarm: Long?,
     val clock: ClockMode,
+    /** False for the moment before the app list arrives, so "Your apps go here" doesn't flash. */
+    val appsLoaded: Boolean = true,
 )
 
 /** Shared click handlers for any app shown on screen. */
@@ -152,7 +154,7 @@ fun HomeScreen(
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        if (state.favorites.isEmpty()) {
+        if (state.favorites.isEmpty() && state.appsLoaded) {
             Tile(Modifier.fillMaxWidth()) {
                 Caption("Your apps go here")
                 Gap(4.dp)
