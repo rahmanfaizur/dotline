@@ -48,9 +48,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import dev.rahmanfaizur.dotline.data.DrawerBackground
+import dev.rahmanfaizur.dotline.data.Feature
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import dev.rahmanfaizur.dotline.data.TextTone
 import dev.rahmanfaizur.dotline.data.TileStyle
 import dev.rahmanfaizur.dotline.ui.common.useDarkText
@@ -84,10 +90,19 @@ class SettingsActions(
     val setTextTone: (TextTone) -> Unit,
     /** Puts the lock-screen version of the chosen wallpaper on the lock screen. */
     val useOnLockScreen: () -> Unit,
+    val openNightClock: () -> Unit,
+    val openScreensaverSettings: () -> Unit,
+    val setFeature: (Feature, Boolean) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
     val close: () -> Unit,
 )
+
+/** The pages Settings is split into; null is the list of pages. */
+enum class SettingsPage(val title: String) {
+    Look("Look"), Home("Home screen"), Lock("Lock screen & clock"), Panel("Panel tiles"),
+    Hidden("Hidden apps"), About("About"),
+}
 
 @Composable
 fun SettingsScreen(
@@ -101,8 +116,13 @@ fun SettingsScreen(
     lists: SettingsLists,
     actions: SettingsActions,
     modifier: Modifier = Modifier,
+    features: Map<Feature, Boolean> = emptyMap(),
 ) {
     val accent = LocalAccent.current
+    var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    // Back on a page returns to the list; Back on the list closes Settings (handled by the launcher).
+    BackHandler(enabled = page != null) { page = null }
+
     Column(
         modifier
             .fillMaxSize()
@@ -111,12 +131,23 @@ fun SettingsScreen(
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
-        // Stays put while the rest scrolls, so closing is always one tap away.
+        // Stays put while the rest scrolls.
         Row(
-            Modifier.fillMaxWidth().padding(start = 18.dp, end = 4.dp, top = 6.dp, bottom = 2.dp),
+            Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicText("SETTINGS", style = Dot.dots(32), modifier = Modifier.weight(1f))
+            val p = page
+            if (p != null) {
+                BasicText(
+                    "‹",
+                    style = Dot.label.copy(color = Dot.Ink, fontSize = 30.sp),
+                    modifier = Modifier.clickable(onClickLabel = "Back to settings") { page = null }
+                        .testTag("settingsBack").padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+                BasicText(p.title.uppercase(), style = Dot.dots(22), maxLines = 1, modifier = Modifier.weight(1f))
+            } else {
+                BasicText("SETTINGS", style = Dot.dots(32), modifier = Modifier.padding(start = 12.dp).weight(1f))
+            }
             BasicText(
                 "✕",
                 style = Dot.label.copy(color = Dot.Muted, fontSize = 22.sp),
@@ -131,68 +162,148 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Only worth the top spot until Dotline is the home screen.
-            if (!isDefaultHome) {
-                Section("Home screen") {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        BasicText("Dotline isn't your home screen yet", style = Dot.label.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
-                        Gap(10.dp)
-                        Chip("Set as home screen", selected = true, accent = accent, tag = "setAsHome", onClick = actions.setAsHome)
+            when (page) {
+                null -> {
+                    if (!isDefaultHome) {
+                        Section("Home screen") {
+                            SettingRow("Dotline isn't your home screen yet") {
+                                Chip("Set as home screen", selected = true, accent = accent, tag = "setAsHome", onClick = actions.setAsHome)
+                            }
+                        }
+                    }
+                    Column(
+                        Modifier.fillMaxWidth().background(Dot.Surface, RoundedCornerShape(22.dp)).padding(vertical = 6.dp),
+                    ) {
+                        PageRow(SettingsPage.Look, "${WallpaperNames.getValue(settings.wallpaper)} · ${TileNames.first { it.first == settings.tileStyle }.second}") { page = it }
+                        PageRow(SettingsPage.Home, if (isDefaultHome) "Default launcher · clock · your apps" else "Not your launcher yet") { page = it }
+                        PageRow(SettingsPage.Lock, "Lock wallpaper · Night clock · screensaver") { page = it }
+                        PageRow(SettingsPage.Panel, onOff(features, Feature.WallpaperTile, Feature.RamTile)) { page = it }
+                        PageRow(SettingsPage.Hidden, if (lists.hidden.isEmpty()) "None" else "${lists.hidden.size} hidden") { page = it }
+                        PageRow(SettingsPage.About, "No internet · private by design") { page = it }
                     }
                 }
+
+                SettingsPage.Look -> LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent)
+
+                SettingsPage.Home -> {
+                    Section("Launcher") {
+                        SettingRow(if (isDefaultHome) "Default launcher: Dotline" else "Default launcher: another app") {
+                            Chip("Change", selected = false, accent = accent, tag = "changeHome", onClick = actions.changeHome)
+                        }
+                    }
+                    Section("Clock") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Chip("Phone setting", settings.clock == ClockMode.System, accent) { actions.setClock(ClockMode.System) }
+                            Chip("24-hour", settings.clock == ClockMode.H24, accent) { actions.setClock(ClockMode.H24) }
+                            Chip("12-hour", settings.clock == ClockMode.H12, accent) { actions.setClock(ClockMode.H12) }
+                        }
+                    }
+                    Section("Quick page") {
+                        SwitchRow("Swipe right for calendar, storage and RAM", settings.showQuickPage, accent, "toggle:quickPage") {
+                            actions.setShowQuickPage(!settings.showQuickPage)
+                        }
+                    }
+                    Section("Your apps") {
+                        AppStrip("Home", lists.favorites, actions.removeFavorite)
+                        AppStrip("Dock", lists.dock, actions.removeDock)
+                        AppStrip("Quick open", lists.quick, actions.removeQuick)
+                        BasicText("Tap an app here to remove it. Long-press any app to add it.", style = Dot.label.copy(color = Dot.Muted))
+                    }
+                }
+
+                SettingsPage.Lock -> {
+                    Section("Lock screen wallpaper") {
+                        SettingRow("Use the Look wallpaper on the lock screen") {
+                            Chip("Set", selected = true, accent = accent, tag = "useOnLock", onClick = actions.useOnLockScreen)
+                        }
+                        BasicText(
+                            lockNote ?: "Android doesn't let apps change the lock screen clock, so it stays your phone's own.",
+                            style = Dot.label.copy(color = Dot.Muted),
+                            modifier = Modifier.testTag("lockNote"),
+                        )
+                    }
+                    Section("Night clock") {
+                        SettingRow("The dot clock, full screen. Shows over the lock screen like an alarm; tap to close.") {
+                            Chip("Open", selected = false, accent = accent, tag = "openNightClock", onClick = actions.openNightClock)
+                        }
+                    }
+                    Section("Screensaver") {
+                        SwitchRow("Dot clock while charging", features[Feature.Screensaver] != false, accent, "toggle:screensaver") {
+                            actions.setFeature(Feature.Screensaver, features[Feature.Screensaver] == false)
+                        }
+                        SettingRow("Pick it in your phone's screensaver settings") {
+                            Chip("Open", selected = false, accent = accent, tag = "openScreensaver", onClick = actions.openScreensaverSettings)
+                        }
+                    }
+                }
+
+                SettingsPage.Panel -> {
+                    Section("Tiles in your phone's pull-down panel") {
+                        SwitchRow("Next wallpaper", features[Feature.WallpaperTile] != false, accent, "toggle:wallpaperTile") {
+                            actions.setFeature(Feature.WallpaperTile, features[Feature.WallpaperTile] == false)
+                        }
+                        SwitchRow("RAM in use", features[Feature.RamTile] != false, accent, "toggle:ramTile") {
+                            actions.setFeature(Feature.RamTile, features[Feature.RamTile] == false)
+                        }
+                        BasicText(
+                            "To add them: pull down the panel, tap the pencil (edit), and drag the Dotline tiles in. Switching one off removes it.",
+                            style = Dot.label.copy(color = Dot.Muted),
+                        )
+                    }
+                }
+
+                SettingsPage.Hidden -> Section("Hidden apps") {
+                    if (lists.hidden.isEmpty()) {
+                        BasicText("None. Long-press an app → Hide from all apps.", style = Dot.label.copy(color = Dot.Muted))
+                    } else {
+                        lists.hidden.forEach { app -> AppRow(app, "Show", actions.unhide) }
+                    }
+                }
+
+                SettingsPage.About -> Section("Dotline") {
+                    BasicText("Your own launcher. It has no internet permission, so nothing can leave the phone.", style = Dot.label.copy(fontSize = 14.sp))
+                    BasicText("Settings and your picked photo stay inside the app's private storage.", style = Dot.label.copy(color = Dot.Muted))
+                    BasicText("Font: Doto (SIL Open Font License).", style = Dot.label.copy(color = Dot.Muted))
+                }
             }
-
-            LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent)
-
-            Section("Your apps") {
-                AppStrip("Home", lists.favorites, actions.removeFavorite)
-                AppStrip("Dock", lists.dock, actions.removeDock)
-                AppStrip("Quick open", lists.quick, actions.removeQuick)
-                BasicText("Tap an app here to remove it. Long-press any app to add it.", style = Dot.label.copy(color = Dot.Muted))
-            }
-
-            Section("Home and lock screen") {
-                // Always here, so switching launchers (or back to Realme's) is one tap away.
-                SettingRow(if (isDefaultHome) "Default launcher: Dotline" else "Default launcher: another app") {
-                    Chip("Change", selected = false, accent = accent, tag = "changeHome", onClick = actions.changeHome)
-                }
-                Caption("Clock")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("Phone setting", settings.clock == ClockMode.System, accent) { actions.setClock(ClockMode.System) }
-                    Chip("24-hour", settings.clock == ClockMode.H24, accent) { actions.setClock(ClockMode.H24) }
-                    Chip("12-hour", settings.clock == ClockMode.H12, accent) { actions.setClock(ClockMode.H12) }
-                }
-                Row(
-                    Modifier.fillMaxWidth().clickable { actions.setShowQuickPage(!settings.showQuickPage) }.testTag("toggle:quickPage"),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BasicText("Quick page (swipe right)", style = Dot.label.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
-                    Switch(settings.showQuickPage, accent)
-                }
-                SettingRow("Wallpaper on the lock screen") {
-                    Chip("Set", selected = true, accent = accent, tag = "useOnLock", onClick = actions.useOnLockScreen)
-                }
-                BasicText(
-                    lockNote ?: "The lock screen clock stays your phone's own.",
-                    style = Dot.label.copy(color = Dot.Muted),
-                    modifier = Modifier.testTag("lockNote"),
-                )
-            }
-
-            Section("Hidden apps") {
-                if (lists.hidden.isEmpty()) {
-                    BasicText("None. Long-press an app → Hide from all apps.", style = Dot.label.copy(color = Dot.Muted))
-                } else {
-                    lists.hidden.forEach { app -> AppRow(app, "Show", actions.unhide) }
-                }
-            }
-
-            BasicText(
-                "Dotline · no internet access · settings stay on this phone",
-                style = Dot.caption.copy(fontSize = 10.sp),
-                modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
-            )
+            Spacer(Modifier.size(20.dp))
         }
+    }
+}
+
+private fun onOff(features: Map<Feature, Boolean>, vararg f: Feature): String {
+    val on = f.count { features[it] != false }
+    return if (on == f.size) "All on" else if (on == 0) "Off" else "$on of ${f.size} on"
+}
+
+@Composable
+private fun PageRow(page: SettingsPage, summary: String, open: (SettingsPage) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = "Open ${page.title}") { open(page) }
+            .testTag("page:${page.name}")
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            BasicText(page.title.uppercase(), style = Dot.dots(18))
+            Gap(2.dp)
+            BasicText(summary, style = Dot.label.copy(color = Dot.Muted, fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        BasicText("›", style = Dot.label.copy(color = Dot.Muted, fontSize = 22.sp))
+    }
+}
+
+@Composable
+private fun SwitchRow(text: String, on: Boolean, accent: Color, tag: String, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onToggle).testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicText(text, style = Dot.label.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
+        Gap(10.dp)
+        Switch(on, accent)
     }
 }
 
@@ -286,9 +397,19 @@ private fun LookSection(
     actions: SettingsActions,
     accent: Color,
 ) {
-    Section("Look") {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            LookPreview(backdrop, settings.tileStyle, useDarkText(settings.textTone, settings.tileStyle, backdrop))
+    Section("Preview") {
+        // Two live previews: home and the app list, side by side.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                LookPreview(backdrop, settings.tileStyle, useDarkText(settings.textTone, settings.tileStyle, backdrop))
+                Gap(6.dp)
+                Caption("Home")
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                AppListPreview(backdrop, settings.drawerBackground, accent)
+                Gap(6.dp)
+                Caption("App list")
+            }
         }
 
         Caption("Wallpaper")
@@ -406,6 +527,57 @@ private fun LookPreview(backdrop: Backdrop?, style: TileStyle, darkText: Boolean
     }
 }
 
+/** A tiny app list drawn with the chosen background, so the choice shows before you leave Settings. */
+@Composable
+private fun AppListPreview(backdrop: Backdrop?, bg: DrawerBackground, accent: Color) {
+    val mode = if (backdrop == null) DrawerBackground.Black else bg
+    val outer = RoundedCornerShape(18.dp)
+    Box(
+        Modifier
+            .width(112.dp)
+            .aspectRatio(9f / 20f)
+            .clip(outer)
+            .border(2.dp, Dot.SurfaceHigh, outer)
+            .background(Dot.Black)
+            .testTag("appListPreview"),
+    ) {
+        if (backdrop != null) when (mode) {
+            DrawerBackground.Frosted -> {
+                Image(backdrop.frosted, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.Low)
+                Box(Modifier.fillMaxSize().background(Color(0x8C000000)))
+            }
+            DrawerBackground.Dimmed -> {
+                Image(backdrop.full, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Color(0xA8000000)))
+            }
+            DrawerBackground.Sheet -> {
+                Image(backdrop.full, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                val sheet = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+                Box(Modifier.fillMaxSize().padding(top = 10.dp).clip(sheet)) {
+                    Image(backdrop.frosted, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.Low)
+                    Box(Modifier.fillMaxSize().background(Color(0x99000000)))
+                }
+            }
+            DrawerBackground.Black -> Unit
+        }
+        val glassy = mode != DrawerBackground.Black
+        Column(Modifier.fillMaxSize().padding(start = 7.dp, end = 7.dp, top = 15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(
+                Modifier.fillMaxWidth().height(14.dp)
+                    .background(if (glassy) Color(0x1AFFFFFF) else Dot.Surface, RoundedCornerShape(50)),
+            )
+            BasicText("A", style = Dot.dots(20, accent))
+            repeat(5) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    repeat(4) { Box(Modifier.size(15.dp).background(Dot.Ink.copy(alpha = 0.85f), CircleShape)) }
+                }
+            }
+        }
+        // The scroll handle on the right edge.
+        Box(Modifier.align(Alignment.CenterEnd).padding(end = 2.dp).size(width = 2.dp, height = 18.dp).background(Dot.Ink.copy(alpha = 0.5f), RoundedCornerShape(50)))
+    }
+}
+
 @Composable
 private fun WallpaperOption(
     kind: WallpaperKind,
@@ -451,7 +623,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Caption(title)
+        BasicText(title.uppercase(), style = Dot.dots(15, Dot.Muted))
         content()
     }
 }

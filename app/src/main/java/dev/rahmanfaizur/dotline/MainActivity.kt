@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.IntSize
 import dev.rahmanfaizur.dotline.data.WallpaperKind
 import dev.rahmanfaizur.dotline.ui.common.Backdrop
 import dev.rahmanfaizur.dotline.ui.common.WallpaperArea
+import dev.rahmanfaizur.dotline.clock.NightClockActivity
 import dev.rahmanfaizur.dotline.ui.common.useDarkText
 import dev.rahmanfaizur.dotline.ui.theme.LocalDarkText
 import androidx.compose.ui.Modifier
@@ -202,6 +203,7 @@ private fun Launcher(
     var menuNote by remember { mutableStateOf<String?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var lockNote by remember { mutableStateOf<String?>(null) }
+    val features by app.features.state.collectAsStateWithLifecycle()
     val focus = LocalFocusManager.current
     val view = LocalView.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -392,6 +394,7 @@ private fun Launcher(
                 photoVersion = photoVersion,
                 thumbnail = { k, w, h -> app.wallpapers.thumbnail(k, accentArgb, w, h) },
                 lockNote = lockNote,
+                features = features,
                 isDefaultHome = home.isDefault,
                 lists = SettingsLists(
                     favorites = resolve(favoriteKeys),
@@ -432,6 +435,15 @@ private fun Launcher(
                             }
                         }
                     },
+                    openNightClock = {
+                        context.startActivity(Intent(context, NightClockActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    },
+                    openScreensaverSettings = {
+                        // Some phones hide Android's screensaver page; Display settings is the closest fallback.
+                        val ok = runCatching { context.startActivity(Intent(Settings.ACTION_DREAM_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+                        if (!ok) runCatching { context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    },
+                    setFeature = { f, on -> app.features.set(f, on) },
                     setAsHome = home.ask,
                     changeHome = home.openSettings,
                     close = { settingsOpen = false },

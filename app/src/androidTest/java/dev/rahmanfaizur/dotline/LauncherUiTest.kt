@@ -54,6 +54,7 @@ class LauncherUiTest {
             app.settings.setHomePromptDismissed(false)
             app.settings.setWallpaper(WallpaperKind.Black)
             app.settings.setTileStyle(TileStyle.Smoke)
+            dev.rahmanfaizur.dotline.data.Feature.entries.forEach { app.features.set(it, true) }
             app.settings.setDrawerBackground(dev.rahmanfaizur.dotline.data.DrawerBackground.Frosted)
         }
     }
@@ -98,6 +99,7 @@ class LauncherUiTest {
         // Empty space between the app tiles and the search pill.
         rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
         rule.onNodeWithTag("settings").assertIsDisplayed()
+        rule.onNodeWithTag("page:Look").performClick()
         rule.onNodeWithText("Rounded square").performScrollTo().assertIsDisplayed()
     }
 
@@ -152,6 +154,7 @@ class LauncherUiTest {
 
     @Test fun lookSectionChangesWallpaperAndTiles() {
         rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("page:Look").performClick()
         rule.onNodeWithTag("lookPreview").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("wallpaper:Sunset").performScrollTo().performClick()
         rule.onNodeWithTag("tiles:Clear glass").performScrollTo().performClick()
@@ -205,5 +208,34 @@ class LauncherUiTest {
         rule.onNodeWithTag("drawer").assertIsDisplayed()
         rule.onNodeWithTag("sectionLetter").performTouchInput { swipeDown(startY = 0f, endY = 900f, durationMillis = 250) }
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("drawer").fetchSemanticsNodes().isEmpty() }
+    }
+
+    private fun openSettings() {
+        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("settings").assertIsDisplayed()
+    }
+
+    @Test fun settingsPagesOpenAndComeBack() {
+        openSettings()
+        for (page in listOf("Look", "Home", "Lock", "Panel", "Hidden", "About")) {
+            rule.onNodeWithTag("page:$page").performClick()
+            rule.onNodeWithTag("settingsBack").assertIsDisplayed()
+            rule.onNodeWithTag("settingsBack").performClick()
+        }
+        rule.onNodeWithTag("page:Home").performClick()
+        rule.onNodeWithTag("changeHome").performScrollTo().assertIsDisplayed() // always a way to switch launcher
+    }
+
+    @Test fun panelTileSwitchRemovesItFromAndroid() {
+        fun ramTileOffered() = app.packageManager.queryIntentServices(
+            android.content.Intent("android.service.quicksettings.action.QS_TILE").setPackage(app.packageName), 0,
+        ).any { it.serviceInfo.name.endsWith("RamTile") }
+        assertTrue(ramTileOffered())
+        openSettings()
+        rule.onNodeWithTag("page:Panel").performClick()
+        rule.onNodeWithTag("toggle:ramTile").performClick()
+        rule.waitUntil(5_000) { !ramTileOffered() }
+        rule.onNodeWithTag("toggle:ramTile").performClick()
+        rule.waitUntil(5_000) { ramTileOffered() }
     }
 }
