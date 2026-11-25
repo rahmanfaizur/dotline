@@ -43,6 +43,8 @@ import dev.rahmanfaizur.dotline.ui.common.Tile
 import dev.rahmanfaizur.dotline.ui.common.TileShape
 import dev.rahmanfaizur.dotline.ui.common.rememberMinuteTicker
 import dev.rahmanfaizur.dotline.ui.common.tile
+import dev.rahmanfaizur.dotline.ui.common.tileTap
+import dev.rahmanfaizur.dotline.data.Shortcut
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 import java.util.Date
@@ -81,6 +83,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     setHome: SetHomePrompt? = null,
+    onTile: (Shortcut) -> Unit = {},
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -120,7 +123,7 @@ fun HomeScreen(
         }
 
         // Clock
-        Tile(Modifier.fillMaxWidth()) {
+        Tile(Modifier.fillMaxWidth().tileTap("Open clock") { onTile(Shortcut.Clock) }.testTag("clockTile")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AccentDot(accent)
                 Gap(8.dp)
@@ -132,12 +135,12 @@ fun HomeScreen(
 
         // Battery + alarm
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Modifier.weight(1f).height(112.dp)) {
+            Tile(Modifier.weight(1f).height(112.dp).tileTap("Battery settings") { onTile(Shortcut.Battery) }) {
                 Caption(if (state.battery?.charging == true) "Charging" else "Battery")
                 BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(38))
                 DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = Dot.Ink)
             }
-            Tile(Modifier.weight(1f).height(112.dp)) {
+            Tile(Modifier.weight(1f).height(112.dp).tileTap("Open alarms") { onTile(Shortcut.Alarms) }) {
                 Caption("Alarm")
                 BasicText(state.nextAlarm?.let(::time) ?: "OFF", style = Dot.dots(38))
                 Caption(

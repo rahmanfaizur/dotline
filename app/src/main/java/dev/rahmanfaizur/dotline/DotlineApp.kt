@@ -4,6 +4,7 @@ import android.app.Application
 import dev.rahmanfaizur.dotline.data.AppRepository
 import dev.rahmanfaizur.dotline.data.IconLoader
 import dev.rahmanfaizur.dotline.data.SettingsStore
+import dev.rahmanfaizur.dotline.data.Shortcuts
 import dev.rahmanfaizur.dotline.data.SystemInfo
 import dev.rahmanfaizur.dotline.data.Wallpapers
 import kotlinx.coroutines.MainScope
@@ -22,6 +23,8 @@ class DotlineApp : Application() {
         private set
     lateinit var wallpapers: Wallpapers
         private set
+    lateinit var shortcuts: Shortcuts
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -30,5 +33,6 @@ class DotlineApp : Application() {
         settings = SettingsStore(this)
         system = SystemInfo(this)
         wallpapers = Wallpapers(this)
+        shortcuts = Shortcuts(this)
     }
 }

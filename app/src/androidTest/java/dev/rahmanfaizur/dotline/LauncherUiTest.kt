@@ -63,7 +63,7 @@ class LauncherUiTest {
     }
 
     @Test fun homeShowsClockAndSearch() {
-        rule.onNodeWithTag("clock").assertIsDisplayed()
+        rule.onNodeWithTag("clock", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("searchPill").assertIsDisplayed()
     }
 
@@ -125,7 +125,7 @@ class LauncherUiTest {
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.waitForIdle()
         assertFalse(rule.activity.isFinishing)
-        rule.onNodeWithTag("clock").assertIsDisplayed()
+        rule.onNodeWithTag("clock", useUnmergedTree = true).assertIsDisplayed()
     }
 
     private fun sectionLetter() =
@@ -180,5 +180,9 @@ class LauncherUiTest {
             rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
             rule.waitForIdle()
         }
+    }
+
+    @Test fun everyTileHasSomethingToOpen() {
+        dev.rahmanfaizur.dotline.data.Shortcut.entries.forEach { assertTrue("$it", app.shortcuts.available(it)) }
     }
 }

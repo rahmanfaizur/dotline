@@ -1,6 +1,8 @@
 package dev.rahmanfaizur.dotline.ui.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,10 @@ import dev.rahmanfaizur.dotline.ui.theme.Dot
 import kotlinx.coroutines.delay
 
 val TileShape = RoundedCornerShape(22.dp)
+
+/** Makes a whole tile tappable, with the ripple kept inside its rounded corners. */
+fun Modifier.tileTap(label: String, onClick: () -> Unit): Modifier =
+    clip(TileShape).clickable(onClickLabel = label, onClick = onClick)
 
 /** The black rounded card every Bento block sits on. */
 @Composable

@@ -288,6 +288,7 @@ private fun Launcher(
                         drawerOpen = true
                     },
                     onOpenSettings = { settingsOpen = true },
+                    onTile = { app.shortcuts.open(it) },
                     setHome = if (!home.isDefault && !promptDismissed) {
                         SetHomePrompt(
                             set = home.ask,
@@ -302,6 +303,7 @@ private fun Launcher(
                     battery = battery,
                     actions = actions,
                     onOpenSettings = { settingsOpen = true },
+
                 )
             }
         }
