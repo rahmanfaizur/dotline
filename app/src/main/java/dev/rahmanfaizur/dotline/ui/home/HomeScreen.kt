@@ -84,6 +84,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     setHome: SetHomePrompt? = null,
     onTile: (Shortcut) -> Unit = {},
+    nowPlaying: dev.rahmanfaizur.dotline.notify.NowPlaying? = null,
+    openPlayer: (String) -> Unit = {},
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -164,6 +166,8 @@ fun HomeScreen(
                 BasicText("Long-press any app → Add to home", style = Dot.label.copy(color = Dot.muted))
             }
         }
+
+        nowPlaying?.let { np -> NowPlayingTile(np, openPlayer = { openPlayer(np.packageName) }) }
 
         Spacer(Modifier.weight(1f))
 

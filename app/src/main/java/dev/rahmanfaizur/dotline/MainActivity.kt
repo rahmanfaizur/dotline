@@ -43,6 +43,11 @@ import dev.rahmanfaizur.dotline.data.WallpaperKind
 import dev.rahmanfaizur.dotline.ui.common.Backdrop
 import dev.rahmanfaizur.dotline.ui.common.WallpaperArea
 import dev.rahmanfaizur.dotline.clock.NightClockActivity
+import android.content.ComponentName
+import androidx.core.app.NotificationManagerCompat
+import dev.rahmanfaizur.dotline.domain.NotificationDots
+import dev.rahmanfaizur.dotline.notify.DotlineNotifications
+import dev.rahmanfaizur.dotline.ui.LocalDots
 import dev.rahmanfaizur.dotline.ui.common.useDarkText
 import dev.rahmanfaizur.dotline.ui.theme.LocalDarkText
 import androidx.compose.ui.Modifier
@@ -128,6 +133,7 @@ class MainActivity : ComponentActivity() {
                     homePresses = homePresses,
                     home = HomeRole(isDefaultHome, ::askToBeHome, ::openHomeSettings),
                     pickPhoto = ::pickPhoto,
+                    notificationAccess = notificationAccess,
                 )
             }
         }
@@ -138,7 +144,11 @@ class MainActivity : ComponentActivity() {
         refreshHomeRole()
     }
 
+    /** Whether the user has allowed Dotline's notification access in Android's settings. */
+    private var notificationAccess by mutableStateOf(false)
+
     private fun refreshHomeRole() {
+        notificationAccess = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         isDefaultHome = getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) ?: true
     }
 
@@ -179,6 +189,7 @@ private fun Launcher(
     homePresses: Int,
     home: HomeRole,
     pickPhoto: (WallpaperKind) -> Unit,
+    notificationAccess: Boolean,
 ) {
     val apps by app.apps.apps.collectAsStateWithLifecycle()
     val promptDismissed by app.settings.homePromptDismissed.collectAsStateWithLifecycle(true)
@@ -266,6 +277,22 @@ private fun Launcher(
     }
     SideEffect { Dot.onWallpaper = backdrop != null }
 
+    // Notifications: only which apps have one, and what's playing; empty unless switched on and allowed.
+    val activeNotifications by app.notifications.active.collectAsStateWithLifecycle()
+    val playing by app.notifications.nowPlaying.collectAsStateWithLifecycle()
+    val installedPackages = remember(apps) { apps.mapTo(HashSet()) { it.component.packageName } }
+    val dotApps = remember(settings.dotApps, installedPackages) { NotificationDots.chosen(settings.dotApps, installedPackages) }
+    val dots = NotificationDots.visible(settings.notificationDots && notificationAccess, activeNotifications, dotApps)
+    fun openNotificationAccess() {
+        val detail = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+            .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, ComponentName(context, DotlineNotifications::class.java).flattenToString())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { context.startActivity(detail) }.isFailure) {
+            runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
+    }
+
+    CompositionLocalProvider(LocalDots provides dots) {
     WallpaperArea(
         backdrop = backdrop,
         style = settings.tileStyle,
@@ -295,6 +322,12 @@ private fun Launcher(
                     },
                     onOpenSettings = { settingsOpen = true },
                     onTile = { app.shortcuts.open(it) },
+                    nowPlaying = playing.takeIf { settings.nowPlaying && notificationAccess },
+                    openPlayer = { pkg ->
+                        context.packageManager.getLaunchIntentForPackage(pkg)?.let {
+                            runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        }
+                    },
                     setHome = if (!home.isDefault && !promptDismissed) {
                         SetHomePrompt(
                             set = home.ask,
@@ -361,6 +394,7 @@ private fun Launcher(
                     inQuick = key in quickKeys,
                     hidden = key in settings.hidden,
                     canUninstall = !app.apps.isSystemApp(entry),
+                    dot = if (settings.notificationDots) entry.component.packageName in dotApps else null,
                 ),
                 actions = MenuActions(
                     info = { app.apps.openAppInfo(entry); closeMenu() },
@@ -373,6 +407,11 @@ private fun Launcher(
                         closeMenu()
                     },
                     uninstall = { app.apps.requestUninstall(entry); closeMenu() },
+                    toggleDot = {
+                        val pkg = entry.component.packageName
+                        app.appScope.launch { app.settings.setDotApps(if (pkg in dotApps) dotApps - pkg else dotApps + pkg) }
+                        closeMenu()
+                    },
                     dismiss = ::closeMenu,
                 ),
                 note = menuNote,
@@ -395,6 +434,8 @@ private fun Launcher(
                 thumbnail = { k, w, h -> app.wallpapers.thumbnail(k, accentArgb, w, h) },
                 lockNote = lockNote,
                 features = features,
+                notificationAccess = notificationAccess,
+                dotAppEntries = apps.filter { it.component.packageName in dotApps }.distinctBy { it.component.packageName },
                 isDefaultHome = home.isDefault,
                 lists = SettingsLists(
                     favorites = resolve(favoriteKeys),
@@ -444,6 +485,16 @@ private fun Launcher(
                         if (!ok) runCatching { context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     },
                     setFeature = { f, on -> app.features.set(f, on) },
+                    setNotificationDots = { on ->
+                        app.appScope.launch { store.setNotificationDots(on) }
+                        if (on && !notificationAccess) openNotificationAccess()
+                    },
+                    setNowPlaying = { on ->
+                        app.appScope.launch { store.setNowPlaying(on) }
+                        if (on && !notificationAccess) openNotificationAccess()
+                    },
+                    openNotificationAccess = ::openNotificationAccess,
+                    removeDotApp = { e -> app.appScope.launch { store.setDotApps(dotApps - e.component.packageName) } },
                     setAsHome = home.ask,
                     changeHome = home.openSettings,
                     close = { settingsOpen = false },
@@ -452,5 +503,6 @@ private fun Launcher(
         }
         // Settings sits above the menu's Back handler, so it is registered last.
         BackHandler(enabled = settingsOpen && menuFor == null) { settingsOpen = false }
+    }
     }
 }

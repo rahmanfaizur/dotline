@@ -93,6 +93,10 @@ class SettingsActions(
     val openNightClock: () -> Unit,
     val openScreensaverSettings: () -> Unit,
     val setFeature: (Feature, Boolean) -> Unit,
+    val setNotificationDots: (Boolean) -> Unit,
+    val setNowPlaying: (Boolean) -> Unit,
+    val openNotificationAccess: () -> Unit,
+    val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
     val close: () -> Unit,
@@ -101,7 +105,7 @@ class SettingsActions(
 /** The pages Settings is split into; null is the list of pages. */
 enum class SettingsPage(val title: String) {
     Look("Look"), Home("Home screen"), Lock("Lock screen & clock"), Panel("Panel tiles"),
-    Hidden("Hidden apps"), About("About"),
+    Notifications("Notifications"), Hidden("Hidden apps"), About("About"),
 }
 
 @Composable
@@ -117,6 +121,8 @@ fun SettingsScreen(
     actions: SettingsActions,
     modifier: Modifier = Modifier,
     features: Map<Feature, Boolean> = emptyMap(),
+    notificationAccess: Boolean = false,
+    dotAppEntries: List<AppEntry> = emptyList(),
 ) {
     val accent = LocalAccent.current
     var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
@@ -178,6 +184,14 @@ fun SettingsScreen(
                         PageRow(SettingsPage.Home, if (isDefaultHome) "Default launcher · clock · your apps" else "Not your launcher yet") { page = it }
                         PageRow(SettingsPage.Lock, "Lock wallpaper · Night clock · screensaver") { page = it }
                         PageRow(SettingsPage.Panel, onOff(features, Feature.WallpaperTile, Feature.RamTile)) { page = it }
+                        PageRow(
+                            SettingsPage.Notifications,
+                            when {
+                                !settings.notificationDots && !settings.nowPlaying -> "Off"
+                                !notificationAccess -> "Needs access"
+                                else -> listOfNotNull("Dots".takeIf { settings.notificationDots }, "Now playing".takeIf { settings.nowPlaying }).joinToString(" · ")
+                            },
+                        ) { page = it }
                         PageRow(SettingsPage.Hidden, if (lists.hidden.isEmpty()) "None" else "${lists.hidden.size} hidden") { page = it }
                         PageRow(SettingsPage.About, "No internet · private by design") { page = it }
                     }
@@ -249,6 +263,36 @@ fun SettingsScreen(
                             "To add them: pull down the panel, tap the pencil (edit), and drag the Dotline tiles in. Switching one off removes it.",
                             style = Dot.label.copy(color = Dot.Muted),
                         )
+                    }
+                }
+
+                SettingsPage.Notifications -> {
+                    Section("Notification access") {
+                        SettingRow(if (notificationAccess) "Allowed in Android's settings" else "Not allowed yet") {
+                            Chip(if (notificationAccess) "Manage" else "Allow", selected = !notificationAccess, accent = accent, tag = "notifAccess", onClick = actions.openNotificationAccess)
+                        }
+                        BasicText(
+                            "Dotline only notes which apps have a notification and what song is playing. It never keeps notification text, and with no internet nothing can leave the phone. Turn both switches off and it ignores notifications completely.",
+                            style = Dot.label.copy(color = Dot.Muted),
+                        )
+                    }
+                    Section("Dots") {
+                        SwitchRow("Dots on app icons", settings.notificationDots, accent, "toggle:dots") {
+                            actions.setNotificationDots(!settings.notificationDots)
+                        }
+                        if (settings.notificationDots) {
+                            if (dotAppEntries.isEmpty()) {
+                                BasicText("No apps chosen.", style = Dot.label.copy(color = Dot.Muted))
+                            } else {
+                                dotAppEntries.forEach { app -> AppRow(app, "Remove", actions.removeDotApp) }
+                            }
+                            BasicText("Long-press any app → Show notification dot to add it.", style = Dot.label.copy(color = Dot.Muted))
+                        }
+                    }
+                    Section("Now playing") {
+                        SwitchRow("Song tile on home, with play, pause and skip", settings.nowPlaying, accent, "toggle:nowPlaying") {
+                            actions.setNowPlaying(!settings.nowPlaying)
+                        }
                     }
                 }
 

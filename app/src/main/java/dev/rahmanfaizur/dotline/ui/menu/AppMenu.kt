@@ -37,6 +37,8 @@ class MenuTarget(
     val inQuick: Boolean,
     val hidden: Boolean,
     val canUninstall: Boolean,
+    /** Null while notification dots are off, so the option isn't shown. */
+    val dot: Boolean? = null,
 )
 
 class MenuActions(
@@ -46,6 +48,7 @@ class MenuActions(
     val toggleQuick: () -> Unit,
     val toggleHidden: () -> Unit,
     val uninstall: () -> Unit,
+    val toggleDot: () -> Unit = {},
     val dismiss: () -> Unit,
 )
 
@@ -84,6 +87,7 @@ fun AppMenu(target: MenuTarget, actions: MenuActions, note: String?, modifier: M
             Item(if (target.inDock) "Remove from dock" else "Add to dock", actions.toggleDock)
             Item(if (target.inQuick) "Remove from quick open" else "Add to quick open", actions.toggleQuick)
             Item(if (target.hidden) "Show in all apps" else "Hide from all apps", actions.toggleHidden)
+            target.dot?.let { on -> Item(if (on) "Turn off notification dot" else "Show notification dot", actions.toggleDot) }
             if (target.canUninstall) Item("Uninstall", actions.uninstall, color = accent)
         }
     }

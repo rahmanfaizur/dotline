@@ -217,7 +217,7 @@ class LauncherUiTest {
 
     @Test fun settingsPagesOpenAndComeBack() {
         openSettings()
-        for (page in listOf("Look", "Home", "Lock", "Panel", "Hidden", "About")) {
+        for (page in listOf("Look", "Home", "Lock", "Panel", "Notifications", "Hidden", "About")) {
             rule.onNodeWithTag("page:$page").performClick()
             rule.onNodeWithTag("settingsBack").assertIsDisplayed()
             rule.onNodeWithTag("settingsBack").performClick()
