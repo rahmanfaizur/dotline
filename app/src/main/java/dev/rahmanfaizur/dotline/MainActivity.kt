@@ -300,10 +300,10 @@ private fun Launcher(
                 QuickPage(
                     quick = resolve(quickKeys),
                     storage = storage,
-                    battery = battery,
                     actions = actions,
                     onOpenSettings = { settingsOpen = true },
-
+                    readMemory = { app.system.memory() },
+                    onTile = { app.shortcuts.open(it) },
                 )
             }
         }

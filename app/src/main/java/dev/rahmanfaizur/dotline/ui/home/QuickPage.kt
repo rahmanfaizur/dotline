@@ -38,6 +38,17 @@ import dev.rahmanfaizur.dotline.ui.common.Tile
 import dev.rahmanfaizur.dotline.ui.common.rememberMinuteTicker
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import dev.rahmanfaizur.dotline.data.MemoryState
+import dev.rahmanfaizur.dotline.data.Shortcut
+import dev.rahmanfaizur.dotline.ui.common.tileTap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
@@ -45,16 +56,27 @@ import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-/** Swipe right from home: calendar, free storage, battery health, quick-open apps. */
+/** Swipe right from home: calendar, free storage, live RAM, quick-open apps. Tiles open their app. */
 @Composable
 fun QuickPage(
     quick: List<AppEntry>,
     storage: StorageState?,
-    battery: BatteryState?,
     actions: AppActions,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    readMemory: () -> MemoryState? = { null },
+    onTile: (Shortcut) -> Unit = {},
 ) {
+    // RAM updates every 2 s, only while this page is on screen and the launcher is in front.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val memory by produceState<MemoryState?>(null, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                value = withContext(Dispatchers.Default) { readMemory() }
+                delay(2_000)
+            }
+        }
+    }
     Column(
         modifier
             .fillMaxSize()
@@ -64,23 +86,19 @@ fun QuickPage(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        CalendarTile(Modifier.fillMaxWidth())
+        CalendarTile(Modifier.fillMaxWidth().tileTap("Open calendar") { onTile(Shortcut.Calendar) })
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Modifier.weight(1f).height(112.dp)) {
+            Tile(Modifier.weight(1f).height(112.dp).tileTap("Open files") { onTile(Shortcut.Storage) }) {
                 Caption("Free storage")
                 // Whole numbers only: the dot font has no good-looking decimal point.
                 BasicText(storage?.let { "${Math.round(it.freeBytes / 1e9)}GB" } ?: "--", style = Dot.dots(34))
                 Caption(storage?.let { "${Sizes.percentUsed(it.freeBytes, it.totalBytes)}% used" } ?: "", color = Dot.Faint)
             }
-            Tile(Modifier.weight(1f).height(112.dp)) {
-                Caption("Battery health")
-                // Android 12 doesn't let apps read a health percentage, only this rating.
-                BasicText(
-                    when (battery?.healthGood) { true -> "GOOD"; false -> "CHECK"; null -> "--" },
-                    style = Dot.dots(34),
-                )
-                Caption("Android's rating", color = Dot.Faint)
+            Tile(Modifier.weight(1f).height(112.dp).tileTap("Memory details") { onTile(Shortcut.Memory) }.testTag("ramTile")) {
+                Caption("RAM in use")
+                BasicText(memory?.let { "${Sizes.percentUsed(it.totalBytes - it.usedBytes, it.totalBytes)}%" } ?: "--", style = Dot.dots(34))
+                Caption(memory?.let { "${Sizes.short(it.usedBytes)} of ${Sizes.short(it.totalBytes)}" } ?: "", color = Dot.Faint)
             }
         }
 

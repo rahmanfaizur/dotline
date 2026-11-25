@@ -185,4 +185,14 @@ class LauncherUiTest {
     @Test fun everyTileHasSomethingToOpen() {
         dev.rahmanfaizur.dotline.data.Shortcut.entries.forEach { assertTrue("$it", app.shortcuts.available(it)) }
     }
+
+    @Test fun quickPageShowsLiveRam() {
+        rule.onNodeWithTag("home").performTouchInput { swipeRight() }
+        // The tile is one tappable item, so its texts are merged into it.
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("ramTile") and hasText("%", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        // Captions are shown in capitals ("2.1 GB OF 4.1 GB").
+        rule.waitUntil(5_000) {
+            rule.onAllNodes(hasTestTag("ramTile") and hasText(" of ", substring = true, ignoreCase = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
 }

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Environment
+import android.app.ActivityManager
 import android.os.StatFs
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.awaitClose
@@ -17,6 +18,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 data class BatteryState(val percent: Int, val charging: Boolean, val healthGood: Boolean?)
 
 data class StorageState(val freeBytes: Long, val totalBytes: Long)
+
+/** RAM in use right now (what Android counts as not available) and the phone's total. */
+data class MemoryState(val usedBytes: Long, val totalBytes: Long)
 
 /**
  * Battery, next alarm and storage, read from public Android APIs.
@@ -29,6 +33,13 @@ class SystemInfo(private val context: Context) {
     /** Trigger time (epoch ms) of the next alarm-clock alarm, or null if none is set. */
     fun nextAlarm(): Flow<Long?> = broadcasts(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED) {
         context.getSystemService(AlarmManager::class.java).nextAlarmClock?.triggerTime
+    }
+
+    /** Cheap to call: one system query, no permission needed. */
+    fun memory(): MemoryState {
+        val info = ActivityManager.MemoryInfo()
+        context.getSystemService(ActivityManager::class.java).getMemoryInfo(info)
+        return MemoryState(info.totalMem - info.availMem, info.totalMem)
     }
 
     fun storage(): StorageState {
