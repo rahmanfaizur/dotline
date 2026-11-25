@@ -58,7 +58,6 @@ fun QuickPage(
     Column(
         modifier
             .fillMaxSize()
-            .background(Dot.Black)
             .testTag("quickPage")
             .statusBarsPadding()
             .navigationBarsPadding()

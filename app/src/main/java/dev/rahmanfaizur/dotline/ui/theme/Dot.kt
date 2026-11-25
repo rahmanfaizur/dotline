@@ -2,7 +2,12 @@ package dev.rahmanfaizur.dotline.ui.theme
 
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -51,10 +56,16 @@ object Dot {
 
     val Mono = FontFamily.Monospace
 
-    val label = TextStyle(color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-    val caption = TextStyle(color = Muted, fontFamily = Mono, fontSize = 11.sp, letterSpacing = 1.sp)
+    /** True while a wallpaper is showing: text then gets a soft shadow to stay readable on bright pictures. */
+    var onWallpaper by mutableStateOf(false)
+
+    private val TextShadow = Shadow(Color(0x99000000), Offset(0f, 2f), blurRadius = 6f)
+    private val shadow get() = if (onWallpaper) TextShadow else null
+
+    val label get() = TextStyle(color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = shadow)
+    val caption get() = TextStyle(color = Muted, fontFamily = Mono, fontSize = 11.sp, letterSpacing = 1.sp, shadow = shadow)
     fun dots(size: Int, color: Color = Ink) =
-        TextStyle(color = color, fontFamily = DotFont, fontWeight = FontWeight.Black, fontSize = size.sp)
+        TextStyle(color = color, fontFamily = DotFont, fontWeight = FontWeight.Black, fontSize = size.sp, shadow = shadow)
 }
 
 /** Accent colour chosen in Settings. */

@@ -42,6 +42,7 @@ import dev.rahmanfaizur.dotline.ui.common.Gap
 import dev.rahmanfaizur.dotline.ui.common.Tile
 import dev.rahmanfaizur.dotline.ui.common.TileShape
 import dev.rahmanfaizur.dotline.ui.common.rememberMinuteTicker
+import dev.rahmanfaizur.dotline.ui.common.tile
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 import java.util.Date
@@ -97,7 +98,6 @@ fun HomeScreen(
     Column(
         modifier
             .fillMaxSize()
-            .background(Dot.Black)
             .testTag("home")
             .pointerInput(Unit) {
                 var total = 0f
@@ -168,7 +168,7 @@ fun HomeScreen(
         Box(
             Modifier
                 .fillMaxWidth()
-                .background(Dot.Surface, RoundedCornerShape(50))
+                .tile(RoundedCornerShape(50))
                 .clickable { onOpenApps(true) }
                 .testTag("searchPill")
                 .padding(horizontal = 18.dp, vertical = 14.dp),
@@ -181,7 +181,7 @@ fun HomeScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(Dot.Surface, RoundedCornerShape(50))
+                    .tile(RoundedCornerShape(50))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
             ) {
@@ -195,7 +195,7 @@ fun HomeScreen(
 private fun AppTile(app: AppEntry, actions: AppActions, modifier: Modifier) {
     Row(
         modifier
-            .background(Dot.Surface, TileShape)
+            .tile(TileShape)
             .appClicks(app, actions)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -218,7 +218,7 @@ private fun SetHomeTile(prompt: SetHomePrompt, accent: androidx.compose.ui.graph
     Row(
         Modifier
             .fillMaxWidth()
-            .background(Dot.Surface, TileShape)
+            .tile(TileShape)
             .testTag("setHomeTile")
             .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

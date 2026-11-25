@@ -37,7 +37,7 @@ fun Tile(
 ) {
     Column(
         modifier
-            .background(Dot.Surface, TileShape)
+            .tile(TileShape)
             .padding(padding),
         verticalArrangement = Arrangement.SpaceBetween,
         content = content,
