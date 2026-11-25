@@ -45,8 +45,12 @@ class Backdrop(val full: ImageBitmap, val frosted: ImageBitmap, val brightness: 
 fun useDarkText(tone: TextTone, style: TileStyle, backdrop: Backdrop?): Boolean = when (tone) {
     TextTone.White -> false
     TextTone.Black -> true
-    TextTone.Auto -> backdrop != null && backdrop.brightness > 0.6f &&
-        style in setOf(TileStyle.Glass, TileStyle.Outline, TileStyle.Floating)
+    TextTone.Auto -> backdrop != null && when (style) {
+        // Floating and outline tiles show the picture as it is, so only really bright ones need black text.
+        TileStyle.Outline, TileStyle.Floating -> backdrop.brightness > 0.6f
+        TileStyle.Glass -> backdrop.brightness > 0.7f
+        else -> false
+    }
 }
 
 /** Where the wallpaper is drawn, so a tile can work out which part of it sits behind the tile. */
@@ -88,7 +92,9 @@ fun WallpaperArea(
 }
 
 private val SmokeTint = Color(0x66000000)
-private val GlassTint = Color(0x2EFFFFFF)
+// Clear glass = a little dark under a little white, so white text stays readable on bright pictures.
+private val GlassShade = Color(0x38000000)
+private val GlassTint = Color(0x1FFFFFFF)
 private val TintedFill = Color(0x8C000000)
 
 /** The background for any tile, pill or dock, in the tile style chosen in Settings. */
@@ -135,6 +141,7 @@ private fun Modifier.frosted(look: TileLook, shape: Shape, tint: Color): Modifie
                 val sh = ((size.height / s) * k).roundToInt().coerceIn(1, img.height - sy)
                 clipPath(path) {
                     drawImage(img, IntOffset(sx, sy), IntSize(sw, sh), dstSize = dst, filterQuality = FilterQuality.Low)
+                    if (tint == GlassTint) drawRect(GlassShade)
                     drawRect(tint)
                 }
             } else {
