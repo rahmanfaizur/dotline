@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -155,13 +156,16 @@ class LauncherUiTest {
         }
     }
 
-    @Test fun setUsesWallpaperOnLockScreen() {
-        runBlocking { app.settings.setWallpaper(WallpaperKind.DotField) }
-        val lockBefore = android.app.WallpaperManager.getInstance(app).getWallpaperId(android.app.WallpaperManager.FLAG_LOCK)
-        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
-        rule.onNodeWithTag("useOnLock").performScrollTo().performClick()
-        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Done. Lock your phone to see it.")).fetchSemanticsNodes().isNotEmpty() }
-        val lockAfter = android.app.WallpaperManager.getInstance(app).getWallpaperId(android.app.WallpaperManager.FLAG_LOCK)
-        assertNotEquals(lockBefore, lockAfter)
+    @Test fun lockScreenOpensPhoneWallpaperScreenOrSetsDirectly() = runBlocking {
+        val intent = app.wallpapers.lockScreenIntent(WallpaperKind.DotField, 0xFFE8453C.toInt(), 108, 240)
+        if (intent != null) {
+            // The phone has its own "set wallpaper" screen: it must be able to open our image.
+            assertTrue(intent.resolveActivity(app.packageManager) != null)
+            assertTrue(intent.flags and android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
+        }
+        val wm = android.app.WallpaperManager.getInstance(app)
+        val before = wm.getWallpaperId(android.app.WallpaperManager.FLAG_LOCK)
+        assertTrue(app.wallpapers.setLockScreen(WallpaperKind.DotField, 0xFFE8453C.toInt(), 108, 240))
+        assertNotEquals(before, wm.getWallpaperId(android.app.WallpaperManager.FLAG_LOCK))
     }
 }

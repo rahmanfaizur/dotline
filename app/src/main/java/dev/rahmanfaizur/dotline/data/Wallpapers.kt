@@ -2,6 +2,8 @@ package dev.rahmanfaizur.dotline.data
 
 import android.app.WallpaperManager
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -68,6 +70,28 @@ class Wallpapers(context: Context) {
             val photo = if (kind == WallpaperKind.Photo || kind == WallpaperKind.Halftone) loadPhoto() else null
             WallpaperArt.render(kind, w, h, accent, lock, photo).also { photo?.recycle() }
         }
+
+    /**
+     * Saves the lock-screen version of [kind] and returns an intent that opens the phone's own
+     * "set wallpaper" screen with it, where the user picks Lock screen / Home / Both.
+     * Some phones (Realme/ColorOS) only show lock wallpapers set that way. Null if the phone has no such screen.
+     */
+    suspend fun lockScreenIntent(kind: WallpaperKind, accent: Int, w: Int, h: Int): Intent? = withContext(Dispatchers.Default) {
+        runCatching {
+            val photo = if (kind == WallpaperKind.Photo || kind == WallpaperKind.Halftone) loadPhoto() else null
+            val bmp = WallpaperArt.render(kind, w, h, accent, lock = true, photo = photo)
+                ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLACK) }
+            photo?.recycle()
+            val dir = File(app.cacheDir, "share").apply { mkdirs() }
+            dir.listFiles()?.forEach { it.delete() } // keep only the newest
+            val file = File(dir, "dotline-lock-${System.currentTimeMillis()}.png")
+            file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bmp.recycle()
+            val uri = FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+            WallpaperManager.getInstance(app).getCropAndSetWallpaperIntent(uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }.getOrNull()
+    }
 
     /**
      * Sets the lock-screen wallpaper to the lock variant of [kind] (or plain black).

@@ -202,6 +202,7 @@ private fun Launcher(
     var lockNote by remember { mutableStateOf<String?>(null) }
     val focus = LocalFocusManager.current
     val view = LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
 
     fun closeDrawer() {
@@ -405,10 +406,19 @@ private fun Launcher(
                     pickPhoto = pickPhoto,
                     setTileStyle = { st -> app.appScope.launch { store.setTileStyle(st) } },
                     useOnLockScreen = {
-                        lockNote = "Setting…"
+                        lockNote = "Getting it ready…"
                         app.appScope.launch {
-                            val ok = app.wallpapers.setLockScreen(settings.wallpaper, accentArgb, screen.width, screen.height)
-                            lockNote = if (ok) "Done. Lock your phone to see it." else "Your phone didn't allow it. Set it from the phone's wallpaper settings instead."
+                            val w = screen.width; val h = screen.height
+                            // Preferred: the phone's own wallpaper screen (the only way Realme shows it).
+                            val intent = app.wallpapers.lockScreenIntent(settings.wallpaper, accentArgb, w, h)
+                            val opened = intent != null && runCatching { context.startActivity(intent) }.isSuccess
+                            lockNote = if (opened) {
+                                "In the screen that opened, choose Lock screen (or Both)."
+                            } else if (app.wallpapers.setLockScreen(settings.wallpaper, accentArgb, w, h)) {
+                                "Done. Lock your phone to see it."
+                            } else {
+                                "Your phone didn't allow it. Set it from the phone's wallpaper settings instead."
+                            }
                         }
                     },
                     setAsHome = home.ask,
