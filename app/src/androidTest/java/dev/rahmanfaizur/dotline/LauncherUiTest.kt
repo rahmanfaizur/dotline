@@ -1,0 +1,84 @@
+package dev.rahmanfaizur.dotline
+
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeUp
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/**
+ * Drives the real launcher on a device or emulator.
+ * Relies on Chrome being installed, which it is on every Google emulator image.
+ */
+@RunWith(AndroidJUnit4::class)
+class LauncherUiTest {
+
+    @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+
+    /** An app row inside the drawer (the same app may also be a tile on the home screen underneath). */
+    private fun inDrawer(text: String) = rule.onNode(hasText(text) and hasAnyAncestor(hasTestTag("drawer")))
+
+    private fun openSearch() {
+        rule.onNodeWithTag("searchPill").performClick()
+        rule.onNodeWithTag("drawer").assertIsDisplayed()
+    }
+
+    @Test fun homeShowsClockAndSearch() {
+        rule.onNodeWithTag("clock").assertIsDisplayed()
+        rule.onNodeWithTag("searchPill").assertIsDisplayed()
+    }
+
+    @Test fun swipeUpOpensAllApps() {
+        rule.onNodeWithTag("home").performTouchInput { swipeUp() }
+        rule.onNodeWithTag("drawer").assertIsDisplayed()
+    }
+
+    @Test fun searchRanksMatchingAppFirst() {
+        openSearch()
+        rule.onNodeWithTag("searchField").performTextInput("chr")
+        inDrawer("Chrome").assertIsDisplayed()
+        rule.onNodeWithText("Enter to open").assertIsDisplayed()
+    }
+
+    @Test fun unknownSearchSaysNoMatch() {
+        openSearch()
+        rule.onNodeWithTag("searchField").performTextInput("zzqxv")
+        rule.onNodeWithText("No apps match").assertIsDisplayed()
+    }
+
+    @Test fun longPressAppShowsMenu() {
+        openSearch()
+        rule.onNodeWithTag("searchField").performTextInput("chr")
+        inDrawer("Chrome").performTouchInput { longClick() }
+        rule.onNodeWithTag("appMenu").assertIsDisplayed()
+        rule.onNodeWithText("App info").assertIsDisplayed()
+    }
+
+    @Test fun longPressEmptyHomeOpensSettings() {
+        // Empty space between the app tiles and the search pill.
+        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("settings").assertIsDisplayed()
+        rule.onNodeWithText("Rounded square").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun swipeRightShowsQuickPageWithSettingsLink() {
+        rule.onNodeWithTag("home").performTouchInput { swipeRight() }
+        rule.onNodeWithTag("quickPage").assertIsDisplayed()
+        rule.onNodeWithTag("openSettings").performClick()
+        rule.onNodeWithTag("settings").assertIsDisplayed()
+    }
+}
