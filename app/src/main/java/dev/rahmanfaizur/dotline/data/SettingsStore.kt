@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.map
 enum class IconShape { Round, Square }
 enum class ClockMode { System, H24, H12 }
 
+/** How tiles sit on the wallpaper. On plain black, the see-through styles show as Solid. */
+enum class TileStyle { Smoke, Glass, Tinted, Outline, Floating, Solid }
+
 /**
  * Everything the user can change. App lists hold component names ("pkg/.Activity").
  * A null list means "not customised yet": the launcher picks sensible defaults.
@@ -29,6 +32,8 @@ data class LauncherSettings(
     val iconShape: IconShape = IconShape.Round,
     val clock: ClockMode = ClockMode.System,
     val showQuickPage: Boolean = true,
+    val wallpaper: WallpaperKind = WallpaperKind.Black,
+    val tileStyle: TileStyle = TileStyle.Smoke,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -54,6 +59,8 @@ class SettingsStore(context: Context) {
     suspend fun setIconShape(shape: IconShape) = store.edit { it[ICON_SHAPE] = shape.name }
     suspend fun setClock(mode: ClockMode) = store.edit { it[CLOCK] = mode.name }
     suspend fun setShowQuickPage(show: Boolean) = store.edit { it[QUICK_PAGE] = show }
+    suspend fun setWallpaper(kind: WallpaperKind) = store.edit { it[WALLPAPER] = kind.name }
+    suspend fun setTileStyle(style: TileStyle) = store.edit { it[TILE_STYLE] = style.name }
     suspend fun setHomePromptDismissed(dismissed: Boolean) = store.edit { it[HOME_PROMPT_DISMISSED] = dismissed }
 
     private fun Preferences.toSettings() = LauncherSettings(
@@ -65,6 +72,8 @@ class SettingsStore(context: Context) {
         iconShape = this[ICON_SHAPE]?.let { runCatching { IconShape.valueOf(it) }.getOrNull() } ?: IconShape.Round,
         clock = this[CLOCK]?.let { runCatching { ClockMode.valueOf(it) }.getOrNull() } ?: ClockMode.System,
         showQuickPage = this[QUICK_PAGE] ?: true,
+        wallpaper = this[WALLPAPER]?.let { runCatching { WallpaperKind.valueOf(it) }.getOrNull() } ?: WallpaperKind.Black,
+        tileStyle = this[TILE_STYLE]?.let { runCatching { TileStyle.valueOf(it) }.getOrNull() } ?: TileStyle.Smoke,
     )
 
     private fun List<String>.join() = joinToString("\n")
@@ -79,6 +88,8 @@ class SettingsStore(context: Context) {
         val ICON_SHAPE = stringPreferencesKey("icon_shape")
         val CLOCK = stringPreferencesKey("clock")
         val QUICK_PAGE = booleanPreferencesKey("quick_page")
+        val WALLPAPER = stringPreferencesKey("wallpaper")
+        val TILE_STYLE = stringPreferencesKey("tile_style")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }
