@@ -44,6 +44,9 @@ import dev.rahmanfaizur.dotline.ui.home.QuickPage
 import dev.rahmanfaizur.dotline.ui.menu.AppMenu
 import dev.rahmanfaizur.dotline.ui.menu.MenuActions
 import dev.rahmanfaizur.dotline.ui.menu.MenuTarget
+import dev.rahmanfaizur.dotline.ui.settings.SettingsActions
+import dev.rahmanfaizur.dotline.ui.settings.SettingsLists
+import dev.rahmanfaizur.dotline.ui.settings.SettingsScreen
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 import dev.rahmanfaizur.dotline.ui.theme.LocalIconShape
@@ -104,6 +107,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
     var query by rememberSaveable { mutableStateOf("") }
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
     var menuNote by remember { mutableStateOf<String?>(null) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val scope = rememberCoroutineScope()
 
@@ -140,6 +144,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
         if (homePresses > 0) {
             closeMenu()
             closeDrawer()
+            settingsOpen = false
             if (pager.currentPage != homePage) pager.animateScrollToPage(homePage)
         }
     }
@@ -160,7 +165,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
                         focusSearch = withSearch
                         drawerOpen = true
                     },
-                    onOpenSettings = { },
+                    onOpenSettings = { settingsOpen = true },
                 )
             } else {
                 QuickPage(
@@ -168,7 +173,7 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
                     storage = storage,
                     battery = battery,
                     actions = actions,
-                    onOpenSettings = { },
+                    onOpenSettings = { settingsOpen = true },
                 )
             }
         }
@@ -234,5 +239,36 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
             )
         }
         BackHandler(enabled = menuFor != null) { closeMenu() }
+
+        AnimatedVisibility(
+            visible = settingsOpen,
+            enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { it / 8 },
+            exit = fadeOut(tween(140)) + slideOutVertically(tween(180)) { it / 8 },
+        ) {
+            fun keyOf(e: AppEntry) = e.component.flattenToString()
+            val store = app.settings
+            SettingsScreen(
+                settings = settings,
+                lists = SettingsLists(
+                    favorites = resolve(favoriteKeys),
+                    dock = resolve(dockKeys),
+                    quick = resolve(quickKeys),
+                    hidden = resolve(settings.hidden.toList()).sortedBy { it.label.lowercase() },
+                ),
+                actions = SettingsActions(
+                    removeFavorite = { e -> app.appScope.launch { store.setFavorites(favoriteKeys - keyOf(e)) } },
+                    removeDock = { e -> app.appScope.launch { store.setDock(dockKeys - keyOf(e)) } },
+                    removeQuick = { e -> app.appScope.launch { store.setQuick(quickKeys - keyOf(e)) } },
+                    unhide = { e -> app.appScope.launch { store.setHidden(settings.hidden - keyOf(e)) } },
+                    setAccent = { i -> app.appScope.launch { store.setAccent(i) } },
+                    setIconShape = { sh -> app.appScope.launch { store.setIconShape(sh) } },
+                    setClock = { m -> app.appScope.launch { store.setClock(m) } },
+                    setShowQuickPage = { on -> app.appScope.launch { store.setShowQuickPage(on) } },
+                    close = { settingsOpen = false },
+                ),
+            )
+        }
+        // Settings sits above the menu's Back handler, so it is registered last.
+        BackHandler(enabled = settingsOpen && menuFor == null) { settingsOpen = false }
     }
 }
