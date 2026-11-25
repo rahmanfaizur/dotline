@@ -19,19 +19,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.rahmanfaizur.dotline.data.AppEntry
+import dev.rahmanfaizur.dotline.data.LauncherSettings
 import dev.rahmanfaizur.dotline.ui.LocalIconLoader
 import dev.rahmanfaizur.dotline.ui.drawer.DrawerScreen
+import dev.rahmanfaizur.dotline.ui.home.AppActions
 import dev.rahmanfaizur.dotline.ui.home.HomeScreen
+import dev.rahmanfaizur.dotline.ui.home.HomeState
 import dev.rahmanfaizur.dotline.ui.theme.Dot
+import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
+import dev.rahmanfaizur.dotline.ui.theme.LocalIconShape
 
 class MainActivity : ComponentActivity() {
 
@@ -47,8 +53,13 @@ class MainActivity : ComponentActivity() {
         )
         val app = application as DotlineApp
         setContent {
-            CompositionLocalProvider(LocalIconLoader provides app.icons) {
-                Launcher(app, homePresses)
+            val settings by app.settings.settings.collectAsStateWithLifecycle(LauncherSettings())
+            CompositionLocalProvider(
+                LocalIconLoader provides app.icons,
+                LocalAccent provides Dot.accent(settings.accent),
+                LocalIconShape provides Dot.iconShape(settings.iconShape),
+            ) {
+                Launcher(app, settings, homePresses)
             }
         }
     }
@@ -60,8 +71,19 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun Launcher(app: DotlineApp, homePresses: Int) {
-    val apps by app.apps.apps.collectAsState()
+private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: Int) {
+    val apps by app.apps.apps.collectAsStateWithLifecycle()
+    // Created once; collection pauses automatically while the launcher isn't visible.
+    val batteryFlow = remember(app) { app.system.battery() }
+    val alarmFlow = remember(app) { app.system.nextAlarm() }
+    val battery by batteryFlow.collectAsStateWithLifecycle(null)
+    val nextAlarm by alarmFlow.collectAsStateWithLifecycle(null)
+
+    val byComponent = remember(apps) { apps.associateBy { it.component.flattenToString() } }
+    val defaults = remember(apps) { app.apps.defaults(apps) }
+    fun resolve(keys: List<String>) = keys.mapNotNull { byComponent[it] }
+    val visibleApps = remember(apps, settings.hidden) { apps.filter { it.component.flattenToString() !in settings.hidden } }
+
     var drawerOpen by rememberSaveable { mutableStateOf(false) }
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -74,9 +96,11 @@ private fun Launcher(app: DotlineApp, homePresses: Int) {
         focus.clearFocus()
     }
 
-    fun launch(entry: AppEntry) {
-        app.apps.launch(entry)
-        closeDrawer()
+    val actions = remember(app) {
+        AppActions(
+            launch = { entry: AppEntry -> app.apps.launch(entry); closeDrawer() },
+            longPress = { },
+        )
     }
 
     // Home button: always come back to the clean home screen.
@@ -85,21 +109,32 @@ private fun Launcher(app: DotlineApp, homePresses: Int) {
     BackHandler { if (drawerOpen) closeDrawer() }
 
     Box(Modifier.fillMaxSize().background(Dot.Black)) {
-        HomeScreen(onOpenApps = { withSearch ->
-            focusSearch = withSearch
-            drawerOpen = true
-        })
+        HomeScreen(
+            state = HomeState(
+                favorites = resolve(settings.favorites ?: defaults.favorites),
+                dock = resolve(settings.dock ?: defaults.dock),
+                battery = battery,
+                nextAlarm = nextAlarm,
+                clock = settings.clock,
+            ),
+            actions = actions,
+            onOpenApps = { withSearch ->
+                focusSearch = withSearch
+                drawerOpen = true
+            },
+            onOpenSettings = { },
+        )
         AnimatedVisibility(
             visible = drawerOpen,
             enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { it / 8 },
             exit = fadeOut(tween(140)) + slideOutVertically(tween(180)) { it / 8 },
         ) {
             DrawerScreen(
-                apps = apps,
+                apps = visibleApps,
                 query = query,
                 onQueryChange = { query = it },
                 focusSearch = focusSearch,
-                onLaunch = ::launch,
+                onLaunch = actions.launch,
             )
         }
     }
