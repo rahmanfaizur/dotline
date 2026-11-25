@@ -31,8 +31,11 @@ object Dot {
     val Red = Color(0xFFE8453C)
 
     /** Accent choices in Settings; index 0 is the default red. */
-    val Accents = listOf(Red, Color(0xFFF2F2F2), Color(0xFFF0B44C), Color(0xFF7FCF9A), Color(0xFF6FA8FF))
-    val AccentNames = listOf("Red", "White", "Amber", "Green", "Blue")
+    val Accents = listOf(
+        Red, Color(0xFFF2F2F2), Color(0xFFF0B44C), Color(0xFF7FCF9A), Color(0xFF6FA8FF),
+        Color(0xFFFF6FAE), Color(0xFFA78BFA),
+    )
+    val AccentNames = listOf("Red", "White", "Amber", "Green", "Blue", "Pink", "Violet")
 
     fun accent(index: Int) = Accents.getOrElse(index) { Red }
 
