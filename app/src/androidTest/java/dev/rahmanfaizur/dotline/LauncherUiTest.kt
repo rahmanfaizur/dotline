@@ -132,20 +132,22 @@ class LauncherUiTest {
     private fun sectionLetter() =
         rule.onNodeWithTag("sectionLetter").fetchSemanticsNode().config[SemanticsProperties.Text].first().text
 
-    @Test fun draggingAlongLettersMovesTheList() {
+    @Test fun draggingTheScrollHandleFliesThroughApps() {
         rule.onNodeWithTag("home").performTouchInput { swipeUp() }
         rule.onNodeWithTag("drawer").assertIsDisplayed()
+        // The handle only appears when the list is longer than the screen.
+        org.junit.Assume.assumeTrue(rule.onAllNodesWithTag("fastScroller").fetchSemanticsNodes().isNotEmpty())
         val first = sectionLetter()
-        // Finger down on the top letter of the rail, slide to the bottom (still holding).
-        rule.onNodeWithTag("letterStrip").performTouchInput {
-            down(Offset(width / 2f, 12f))
+        rule.onNodeWithTag("fastScroller").performTouchInput {
+            down(Offset(width / 2f, 4f))
             moveTo(Offset(width / 2f, height / 2f))
-            moveTo(Offset(width / 2f, height - 12f))
+            moveTo(Offset(width / 2f, height - 4f))
         }
         rule.waitForIdle()
         assertNotEquals(first, sectionLetter())
-        rule.onNodeWithTag("railBubble").assertExists() // the big letter follows the finger
-        rule.onNodeWithTag("letterStrip").performTouchInput { up() }
+        rule.onNodeWithTag("railBubble").assertExists() // the letter bubble shows while dragging
+        rule.onNodeWithTag("fastScroller").performTouchInput { up() }
+        rule.waitUntil(3_000) { rule.onAllNodesWithTag("railBubble").fetchSemanticsNodes().isEmpty() }
     }
 
     @Test fun lookSectionChangesWallpaperAndTiles() {

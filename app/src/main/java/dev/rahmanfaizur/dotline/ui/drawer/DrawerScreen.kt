@@ -101,6 +101,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlin.math.roundToInt
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.unit.IntOffset
@@ -156,11 +158,14 @@ fun DrawerScreen(
             .statusBarsPadding()
             .then(if (bg == DrawerBackground.Sheet) Modifier.padding(top = SheetGap) else Modifier)
             .navigationBarsPadding()
-            .imePadding()
-            .padding(horizontal = 16.dp),
+            .imePadding(),
     ) {
         // The top part (search + big letter) can be dragged down to close too.
-        Column(Modifier.draggable(pull.headerDrag, Orientation.Vertical, onDragStopped = { v -> pull.settle(v) })) {
+        Column(
+            Modifier
+                .padding(horizontal = 16.dp)
+                .draggable(pull.headerDrag, Orientation.Vertical, onDragStopped = { v -> pull.settle(v) }),
+        ) {
         Spacer(Modifier.height(12.dp))
         SearchField(
             query = query,
@@ -174,7 +179,7 @@ fun DrawerScreen(
         if (query.isBlank()) {
             AlphabetGrid(apps, actions, Modifier.weight(1f).nestedScroll(pull.connection), pull)
         } else {
-            SearchResults(results, actions, Modifier.weight(1f).nestedScroll(pull.connection), glassy)
+            SearchResults(results, actions, Modifier.weight(1f).padding(horizontal = 16.dp).nestedScroll(pull.connection), glassy)
         }
     }
     }
@@ -366,156 +371,150 @@ private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Mo
             current.toString(),
             style = Dot.dots(84, accent),
             modifier = Modifier
-                .padding(bottom = 4.dp)
+                .padding(start = 16.dp, bottom = 4.dp)
                 .draggable(pull.headerDrag, Orientation.Vertical, onDragStopped = { v -> pull.settle(v) })
                 .testTag("sectionLetter"),
         )
 
-        Row(Modifier.weight(1f)) {
+        Box(Modifier.weight(1f)) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+                columns = GridCells.Fixed(COLUMNS),
                 state = gridState,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
+                // Side margins live here (not on the page) so the scroll handle can reach the screen edge.
+                modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 26.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 items(ordered.size, key = { ordered[it].key }) { i -> AppCell(ordered[i], actions) }
             }
 
-            LetterRail(
-                available = remember(sections) { sections.map { it.letter } },
-                current = current,
-                onPick = { letter -> firstIndex[letter]?.let { scope.launch { gridState.scrollToItem(it) } } },
+            FastScroller(
+                gridState = gridState,
+                letters = letters,
                 onScrub = { scrubbing = it },
+                modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
     }
 }
 
-/** The full rail: A–Z, plus # when some app names start with a digit or symbol. */
-private fun railLetters(available: List<Char>): List<Char> =
-    ('A'..'Z').toList() + (if (available.any { it !in 'A'..'Z' }) listOf('#') else emptyList())
+/** Apps per row in the A–Z grid. */
+private const val COLUMNS = 4
 
-/** A letter with no apps jumps to the next one that has apps (or the last one before it). */
-private fun resolve(letter: Char, rail: List<Char>, available: Set<Char>): Char? {
-    if (letter in available) return letter
-    val i = rail.indexOf(letter)
-    return rail.drop(i + 1).firstOrNull { it in available } ?: rail.take(i).lastOrNull { it in available }
-}
+/** A drop shape: round on three corners, pointed on the fourth; turned so the point faces the handle. */
+private val DropShape = RoundedCornerShape(topStartPercent = 50, topEndPercent = 50, bottomEndPercent = 8, bottomStartPercent = 50)
 
 /**
- * A–Z on the right edge. Tap a letter, or keep your finger on it and slide: letters near the
- * finger swell like a dock, a big dot letter follows beside it, and the list jumps along with a
- * light tick per letter. Letters with no apps are dimmed and jump to the nearest one that has.
+ * A slim handle on the right edge that shows where you are in the list. Drag it (or touch
+ * anywhere along the edge) to fly through the apps; a drop-shaped bubble beside it shows the
+ * letter you're at, with a light tick each time the letter changes.
  */
 @Composable
-private fun LetterRail(available: List<Char>, current: Char, onPick: (Char) -> Unit, onScrub: (Char?) -> Unit) {
-    val accent = LocalAccent.current
+private fun FastScroller(
+    gridState: LazyGridState,
+    letters: List<Char>,
+    onScrub: (Char?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val haptics = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    val pick by rememberUpdatedState(onPick)
+    val scope = rememberCoroutineScope()
     val scrub by rememberUpdatedState(onScrub)
-    val rail = remember(available) { railLetters(available) }
-    val has = remember(available) { available.toSet() }
-    // Letter centres and the finger, in rail coordinates. Plain/draw-phase state: sliding a
-    // finger never recomposes the rail, only redraws it.
-    val centers = remember(rail) { HashMap<Char, Float>() }
-    var fingerY by remember { mutableFloatStateOf(Float.NaN) }
+    var trackHeight by remember { mutableFloatStateOf(1f) }
+    var dragging by remember { mutableStateOf(false) }
     var bubble by remember { mutableStateOf<Char?>(null) }
-    var railTop by remember { mutableFloatStateOf(0f) } // the rail is centred; where its top sits
-    val reach = with(density) { 56.dp.toPx() }
-    val pop = with(density) { 16.dp.toPx() }
+    val thumbH = 44.dp
+    val total = letters.size
 
-    Box(Modifier.fillMaxHeight().width(30.dp), contentAlignment = Alignment.Center) {
-        Column(
-            modifier = Modifier
-                .onGloballyPositioned { railTop = it.positionInParent().y }
-                .background(if (bubble != null) Color(0x2EFFFFFF) else Color(0x14FFFFFF), RoundedCornerShape(50))
-                .testTag("letterStrip")
-                .pointerInput(rail) {
-                    awaitEachGesture {
-                        var last: Char? = null
-                        fun under(y: Float) {
-                            fingerY = y
-                            val raw = centers.minByOrNull { abs(it.value - y) }?.key ?: return
-                            val letter = resolve(raw, rail, has) ?: return
-                            bubble = letter
-                            if (letter != last) {
-                                last = letter
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                scrub(letter)
-                                pick(letter)
-                            }
+    // 0 at the top of the list, 1 at the bottom. Read only while drawing, so scrolling never recomposes this.
+    val progress by remember(gridState, total) {
+        derivedStateOf {
+            // Measured in pixels (rows × row height), so the handle moves smoothly, even on short lists.
+            val info = gridState.layoutInfo
+            val first = info.visibleItemsInfo.firstOrNull() ?: return@derivedStateOf 0f
+            val rowH = (first.size.height + info.mainAxisItemSpacing).toFloat()
+            val rows = (total + COLUMNS - 1) / COLUMNS
+            val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+            val scrolled = (gridState.firstVisibleItemIndex / COLUMNS) * rowH + gridState.firstVisibleItemScrollOffset
+            val max = (rows * rowH + info.afterContentPadding - viewport).coerceAtLeast(1f)
+            (scrolled / max).coerceIn(0f, 1f)
+        }
+    }
+    val canScroll by remember(gridState) { derivedStateOf { gridState.canScrollForward || gridState.canScrollBackward } }
+    if (!canScroll || total == 0) return
+
+    Box(
+        modifier
+            .fillMaxHeight()
+            .width(32.dp) // runs right to the screen edge, where a thumb naturally slides
+            .onSizeChanged { trackHeight = it.height.toFloat() }
+            .testTag("fastScroller")
+            .pointerInput(total) {
+                val thumbPx = thumbH.toPx()
+                awaitEachGesture {
+                    var lastLetter: Char? = null
+                    fun jumpTo(y: Float) {
+                        val f = ((y - thumbPx / 2f) / (trackHeight - thumbPx).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                        val index = (f * (total - 1)).roundToInt()
+                        val letter = letters.getOrNull(index)
+                        bubble = letter
+                        if (letter != lastLetter) {
+                            lastLetter = letter
+                            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            scrub(letter)
                         }
-                        val down = awaitFirstDown()
-                        down.consume()
-                        under(down.position.y)
-                        try {
-                            while (true) {
-                                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                                if (!change.pressed) break
-                                change.consume()
-                                under(change.position.y)
-                            }
-                        } finally {
-                            fingerY = Float.NaN
-                            bubble = null
-                            scrub(null)
+                        scope.launch { gridState.scrollToItem(index) }
+                    }
+                    val down = awaitFirstDown()
+                    down.consume()
+                    dragging = true
+                    jumpTo(down.position.y)
+                    try {
+                        while (true) {
+                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            change.consume()
+                            jumpTo(change.position.y)
                         }
+                    } finally {
+                        dragging = false
+                        bubble = null
+                        scrub(null)
                     }
                 }
-                .padding(vertical = 8.dp, horizontal = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            rail.forEach { letter ->
-                val on = letter == current
-                BasicText(
-                    letter.toString(),
-                    style = Dot.caption.copy(
-                        color = when {
-                            on -> accent
-                            letter in has -> Dot.Ink
-                            else -> Dot.Faint
-                        },
-                        fontSize = 10.sp,
-                        textAlign = TextAlign.Center,
-                    ),
-                    modifier = Modifier
-                        .width(24.dp)
-                        .onGloballyPositioned { centers[letter] = it.positionInParent().y + it.size.height / 2f }
-                        .graphicsLayer {
-                            // Dock-style magnify around the finger.
-                            val c = centers[letter]
-                            val d = if (fingerY.isNaN() || c == null) Float.MAX_VALUE else abs(c - fingerY)
-                            val t = (1f - d / reach).coerceIn(0f, 1f)
-                            val grow = 1f + 0.9f * t * t
-                            scaleX = grow; scaleY = grow
-                            translationX = -pop * t * t
-                        }
-                        .semantics {
-                            role = Role.Button
-                            onClick(label = "Jump to $letter") { resolve(letter, rail, has)?.let(pick); true }
-                        }
-                        .padding(vertical = 1.5.dp),
-                )
-            }
-        }
+            },
+    ) {
+        // The handle: faint while idle, solid and a little wider while you hold it.
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 8.dp)
+                .graphicsLayer { translationY = progress * (trackHeight - thumbH.toPx()) }
+                .size(width = if (dragging) 7.dp else 5.dp, height = thumbH)
+                .background(if (dragging) Dot.Ink else Dot.Ink.copy(alpha = 0.45f), RoundedCornerShape(50)),
+        )
 
-        // The big letter that follows the finger, off to the left of the rail.
         val b = bubble
         if (b != null) {
-            val size = 68.dp
+            val size = 64.dp
             Box(
                 Modifier
                     .align(Alignment.TopEnd)
-                    .offset { IntOffset(-(size.roundToPx() + 18.dp.roundToPx()), 0) }
-                    .graphicsLayer { translationY = railTop + fingerY - size.toPx() / 2f }
-                    .requiredSize(size) // wider than the rail it sits beside, so ignore its width
-                    .background(Dot.Surface, CircleShape)
-                    .border(1.dp, accent, CircleShape)
+                    .offset { IntOffset(-(size.roundToPx() / 2 + 22.dp.roundToPx()), 0) }
+                    .graphicsLayer {
+                        translationY = progress * (trackHeight - thumbH.toPx()) + thumbH.toPx() / 2f - size.toPx() / 2f
+                        rotationZ = -45f // the drop's point now faces right, at the handle
+                    }
+                    .requiredSize(size)
+                    .background(Dot.Ink, DropShape)
                     .testTag("railBubble"),
                 contentAlignment = Alignment.Center,
-            ) { BasicText(b.toString(), style = Dot.dots(40, accent)) }
+            ) {
+                BasicText(
+                    b.toString(),
+                    style = Dot.dots(34, Dot.Black),
+                    modifier = Modifier.graphicsLayer { rotationZ = 45f }, // keep the letter upright
+                )
+            }
         }
     }
 }
