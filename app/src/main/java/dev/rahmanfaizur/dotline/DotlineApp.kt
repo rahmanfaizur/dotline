@@ -6,6 +6,7 @@ import dev.rahmanfaizur.dotline.data.IconLoader
 import dev.rahmanfaizur.dotline.data.SettingsStore
 import dev.rahmanfaizur.dotline.data.Shortcuts
 import dev.rahmanfaizur.dotline.data.Features
+import dev.rahmanfaizur.dotline.data.AudioOutput
 import dev.rahmanfaizur.dotline.data.SystemInfo
 import dev.rahmanfaizur.dotline.data.Wallpapers
 import kotlinx.coroutines.MainScope
@@ -34,6 +35,8 @@ class DotlineApp : Application() {
     lateinit var features: Features
         private set
     val notifications = NotificationHub()
+    lateinit var audio: AudioOutput
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -44,6 +47,7 @@ class DotlineApp : Application() {
         wallpapers = Wallpapers(this)
         shortcuts = Shortcuts(this)
         features = Features(this)
+        audio = AudioOutput(this)
         // The listener only works while Dots or Now playing is switched on.
         appScope.launch {
             settings.settings.map { it.notificationDots || it.nowPlaying }.distinctUntilChanged().collect { on ->

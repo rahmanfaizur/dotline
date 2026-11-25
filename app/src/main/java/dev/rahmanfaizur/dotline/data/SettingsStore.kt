@@ -17,6 +17,9 @@ enum class IconShape { Round, Square }
 enum class ClockMode { System, H24, H12 }
 
 /** How tiles sit on the wallpaper. On plain black, the see-through styles show as Solid. */
+/** How Now playing looks on home. */
+enum class PlayerStyle { Glow, DotWave, Vinyl }
+
 /** Behind the app list. On a black wallpaper all of them show as black. */
 enum class DrawerBackground { Frosted, Dimmed, Sheet, Black }
 
@@ -47,6 +50,9 @@ data class LauncherSettings(
     val nowPlaying: Boolean = false,
     /** Apps that get dots; null = the defaults that are installed. */
     val dotApps: Set<String>? = null,
+    val playerStyle: PlayerStyle = PlayerStyle.Glow,
+    /** Now playing only for Spotify (true) or for any music app. */
+    val spotifyOnly: Boolean = true,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -76,6 +82,8 @@ class SettingsStore(context: Context) {
     suspend fun setTileStyle(style: TileStyle) = store.edit { it[TILE_STYLE] = style.name }
     suspend fun setNotificationDots(on: Boolean) = store.edit { it[NOTIF_DOTS] = on }
     suspend fun setNowPlaying(on: Boolean) = store.edit { it[NOW_PLAYING] = on }
+    suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
+    suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setDotApps(apps: Set<String>) = store.edit { it[DOT_APPS] = apps }
     suspend fun setTextTone(tone: TextTone) = store.edit { it[TEXT_TONE] = tone.name }
     suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
@@ -97,6 +105,8 @@ class SettingsStore(context: Context) {
         notificationDots = this[NOTIF_DOTS] ?: false,
         nowPlaying = this[NOW_PLAYING] ?: false,
         dotApps = this[DOT_APPS],
+        playerStyle = this[PLAYER_STYLE]?.let { runCatching { PlayerStyle.valueOf(it) }.getOrNull() } ?: PlayerStyle.Glow,
+        spotifyOnly = this[SPOTIFY_ONLY] ?: true,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -119,6 +129,8 @@ class SettingsStore(context: Context) {
         val NOTIF_DOTS = booleanPreferencesKey("notification_dots")
         val NOW_PLAYING = booleanPreferencesKey("now_playing")
         val DOT_APPS = stringSetPreferencesKey("dot_apps")
+        val PLAYER_STYLE = stringPreferencesKey("player_style")
+        val SPOTIFY_ONLY = booleanPreferencesKey("spotify_only")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

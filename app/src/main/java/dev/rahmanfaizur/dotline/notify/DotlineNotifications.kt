@@ -29,6 +29,7 @@ class DotlineNotifications : NotificationListenerService() {
 
     override fun onListenerConnected() {
         instance = this
+        hub._connected.value = true
         sessions = getSystemService(MediaSessionManager::class.java)
         runCatching { sessions?.addOnActiveSessionsChangedListener(sessionsChanged, component()) }
         refresh()
@@ -36,6 +37,7 @@ class DotlineNotifications : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         instance = null
+        hub._connected.value = false
         runCatching { sessions?.removeOnActiveSessionsChangedListener(sessionsChanged) }
         watched?.unregisterCallback(mediaCallback)
         watched = null
@@ -80,14 +82,26 @@ class DotlineNotifications : NotificationListenerService() {
         val c = watched
         val meta = c?.metadata
         if (!hub.wanted || c == null || meta == null) { hub._nowPlaying.value = null; return }
+        val state = c.playbackState
+        // Players name their like button differently ("Add to Liked Songs", "Favorite", "Heart").
+        val like = state?.customActions?.firstOrNull { a ->
+            val n = a.name.toString().lowercase()
+            "like" in n || "favo" in n || "heart" in n || "save" in n
+        }
         hub._nowPlaying.value = NowPlaying(
             packageName = c.packageName,
             title = meta.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty(),
             artist = meta.getString(MediaMetadata.METADATA_KEY_ARTIST)
                 ?: meta.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST).orEmpty(),
             art = meta.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: meta.getBitmap(MediaMetadata.METADATA_KEY_ART),
-            playing = c.playbackState?.state == PlaybackState.STATE_PLAYING,
+            playing = state?.state == PlaybackState.STATE_PLAYING,
             controller = c,
+            durationMs = meta.getLong(MediaMetadata.METADATA_KEY_DURATION).coerceAtLeast(0),
+            positionMs = state?.position?.coerceAtLeast(0) ?: 0,
+            positionAtMs = state?.lastPositionUpdateTime ?: 0,
+            speed = state?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
+            likeAction = like?.action,
+            liked = like?.name?.toString()?.lowercase()?.let { "remove" in it || "unlike" in it || "liked" in it } == true,
         )
     }
 
