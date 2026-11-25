@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,7 +111,11 @@ fun HomeScreen(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (setHome != null) SetHomeTile(setHome, accent)
+        // Hidden locally at once on "Not now"; the saved setting keeps it hidden next time.
+        var setHomeHidden by remember { mutableStateOf(false) }
+        if (setHome != null && !setHomeHidden) {
+            SetHomeTile(SetHomePrompt(set = setHome.set, notNow = { setHomeHidden = true; setHome.notNow() }), accent)
+        }
 
         // Clock
         Tile(Modifier.fillMaxWidth()) {
