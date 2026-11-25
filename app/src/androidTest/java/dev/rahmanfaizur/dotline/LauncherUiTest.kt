@@ -1,6 +1,8 @@
 package dev.rahmanfaizur.dotline
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
+import org.junit.Assert.assertNotEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -8,6 +10,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -96,6 +99,8 @@ class LauncherUiTest {
     }
 
     @Test fun setHomeTileShowsUntilNotNow() {
+        // The tile waits for saved settings to load, so it can appear a moment after launch.
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("setHomeTile").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("setHomeTile").assertIsDisplayed()
         rule.onNodeWithTag("setHome").assertIsDisplayed()
         rule.onNodeWithTag("notNow").performClick()
@@ -112,5 +117,23 @@ class LauncherUiTest {
         rule.waitForIdle()
         assertFalse(rule.activity.isFinishing)
         rule.onNodeWithTag("clock").assertIsDisplayed()
+    }
+
+    private fun sectionLetter() =
+        rule.onNodeWithTag("sectionLetter").fetchSemanticsNode().config[SemanticsProperties.Text].first().text
+
+    @Test fun draggingAlongLettersMovesTheList() {
+        rule.onNodeWithTag("home").performTouchInput { swipeUp() }
+        rule.onNodeWithTag("drawer").assertIsDisplayed()
+        val first = sectionLetter()
+        // Finger down on the first letter, slide across and down to the last row (still holding).
+        rule.onNodeWithTag("letterStrip").performTouchInput {
+            down(Offset(30f, 30f))
+            moveTo(Offset(width / 2f, 30f))
+            moveTo(Offset(width - 30f, height - 30f))
+        }
+        rule.waitForIdle()
+        assertNotEquals(first, sectionLetter())
+        rule.onNodeWithTag("letterStrip").performTouchInput { up() }
     }
 }

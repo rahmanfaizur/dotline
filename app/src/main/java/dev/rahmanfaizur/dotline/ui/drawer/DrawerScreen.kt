@@ -34,6 +34,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -48,6 +50,17 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.rememberUpdatedState
 import kotlin.math.abs
 import androidx.compose.ui.platform.testTag
@@ -218,12 +231,16 @@ private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Mo
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
 
-    val current by remember(letters) {
+    val scrolledTo by remember(letters) {
         derivedStateOf { letters.getOrNull(gridState.firstVisibleItemIndex) ?: ' ' }
     }
+    // While a finger is on the strip, show the letter under it (the list may not be able to
+    // scroll all the way, e.g. the last few letters all fit on screen).
+    var scrubbing by remember { mutableStateOf<Char?>(null) }
+    val current = scrubbing ?: scrolledTo
 
     Column(modifier) {
-        BasicText(current.toString(), style = Dot.dots(84, accent), modifier = Modifier.padding(bottom = 4.dp))
+        BasicText(current.toString(), style = Dot.dots(84, accent), modifier = Modifier.padding(bottom = 4.dp).testTag("sectionLetter"))
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
@@ -235,23 +252,78 @@ private fun AlphabetGrid(apps: List<AppEntry>, actions: AppActions, modifier: Mo
             items(ordered.size, key = { ordered[it].key }) { i -> AppCell(ordered[i], actions) }
         }
 
-        FlowRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            sections.forEach { s ->
-                val on = s.letter == current
-                BasicText(
-                    s.letter.toString(),
-                    style = Dot.caption.copy(color = if (on) accent else Dot.Faint, fontSize = 13.sp, textAlign = TextAlign.Center),
-                    modifier = Modifier
-                        .width(24.dp)
-                        .clickable { firstIndex[s.letter]?.let { scope.launch { gridState.scrollToItem(it) } } }
-                        .padding(vertical = 6.dp),
-                )
+        LetterStrip(
+            letters = remember(sections) { sections.map { it.letter } },
+            current = current,
+            onPick = { letter -> firstIndex[letter]?.let { scope.launch { gridState.scrollToItem(it) } } },
+            onScrub = { scrubbing = it },
+        )
+    }
+}
+
+/**
+ * A–Z jump strip. Tap a letter, or keep your finger down and slide: the list follows
+ * the letter under your finger, with a light tick each time it changes.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LetterStrip(letters: List<Char>, current: Char, onPick: (Char) -> Unit, onScrub: (Char?) -> Unit) {
+    val accent = LocalAccent.current
+    val haptics = LocalHapticFeedback.current
+    val pick by rememberUpdatedState(onPick)
+    val scrub by rememberUpdatedState(onScrub)
+    // Centre of each letter inside the strip; plain map, so layout doesn't recompose anything.
+    val centers = remember(letters) { HashMap<Char, Offset>() }
+
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("letterStrip")
+            .pointerInput(letters) {
+                awaitEachGesture {
+                    var last: Char? = null
+                    fun under(p: Offset) {
+                        val letter = centers.minByOrNull { (it.value - p).getDistanceSquared() }?.key ?: return
+                        if (letter != last) {
+                            last = letter
+                            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            scrub(letter)
+                            pick(letter)
+                        }
+                    }
+                    val down = awaitFirstDown()
+                    down.consume()
+                    under(down.position)
+                    try {
+                        while (true) {
+                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            change.consume()
+                            under(change.position)
+                        }
+                    } finally {
+                        scrub(null)
+                    }
+                }
             }
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        letters.forEach { letter ->
+            BasicText(
+                letter.toString(),
+                style = Dot.caption.copy(color = if (letter == current) accent else Dot.Faint, fontSize = 13.sp, textAlign = TextAlign.Center),
+                modifier = Modifier
+                    .width(24.dp)
+                    .onGloballyPositioned {
+                        centers[letter] = it.positionInParent() + Offset(it.size.width / 2f, it.size.height / 2f)
+                    }
+                    .semantics {
+                        role = Role.Button
+                        onClick(label = "Jump to $letter") { pick(letter); true }
+                    }
+                    .padding(vertical = 6.dp),
+            )
         }
     }
 }
