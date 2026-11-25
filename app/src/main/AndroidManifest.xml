@@ -61,6 +61,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Dot clock: as Android's screensaver, and as a full-screen Night clock. -->
+        <service
+            android:name=".clock.DotClockDream"
+            android:exported="true"
+            android:label="Dotline clock"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+        <activity
+            android:name=".clock.NightClockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:label="Night clock"
+            android:screenOrientation="unspecified"
+            android:showWhenLocked="true"
+            android:taskAffinity="dev.rahmanfaizur.dotline.nightclock"
+            android:theme="@style/Theme.Dotline" />
+
         <!-- Tiles for the phone's pull-down panel. Only the system can bind them; no permission is requested. -->
         <service
             android:name=".tiles.WallpaperTile"

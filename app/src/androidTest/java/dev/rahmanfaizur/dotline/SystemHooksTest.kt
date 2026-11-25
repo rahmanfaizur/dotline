@@ -22,4 +22,19 @@ class SystemHooksTest {
         val tiles = servicesFor("android.service.quicksettings.action.QS_TILE")
         assertTrue(tiles.toString(), "WallpaperTile" in tiles && "RamTile" in tiles)
     }
+
+    @Test fun screensaverIsOffered() {
+        assertTrue("DotClockDream" in servicesFor("android.service.dreams.DreamService"))
+    }
+
+    @Test fun nightClockOpensAndClosesOnTap() {
+        androidx.test.core.app.ActivityScenario.launch(dev.rahmanfaizur.dotline.clock.NightClockActivity::class.java).use { sc ->
+            assertTrue(sc.state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+            sc.onActivity {
+                val content = it.findViewById<android.view.ViewGroup>(android.R.id.content)
+                content.getChildAt(0).performClick()
+                assertTrue(it.isFinishing) // a tap closes it, back to wherever you were
+            }
+        }
+    }
 }
