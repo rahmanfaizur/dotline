@@ -16,6 +16,14 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import dev.rahmanfaizur.dotline.data.StorageState
+import dev.rahmanfaizur.dotline.ui.home.QuickPage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -108,22 +116,50 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
     // A launcher sits at the bottom of the back stack; Back only closes the drawer.
     BackHandler { if (drawerOpen) closeDrawer() }
 
+    // Page 0 = quick page (swipe right from home), page 1 = home.
+    val pageCount = if (settings.showQuickPage) 2 else 1
+    val homePage = pageCount - 1
+    val pager = rememberPagerState(initialPage = homePage) { pageCount }
+    val scope = rememberCoroutineScope()
+    var storage by remember { mutableStateOf<StorageState?>(null) }
+    LaunchedEffect(pager.currentPage) {
+        if (pager.currentPage != homePage) storage = withContext(Dispatchers.IO) { app.system.storage() }
+    }
+    // Home button: also return from the quick page.
+    LaunchedEffect(homePresses) { if (homePresses > 0 && pager.currentPage != homePage) pager.animateScrollToPage(homePage) }
+
     Box(Modifier.fillMaxSize().background(Dot.Black)) {
-        HomeScreen(
-            state = HomeState(
-                favorites = resolve(settings.favorites ?: defaults.favorites),
-                dock = resolve(settings.dock ?: defaults.dock),
-                battery = battery,
-                nextAlarm = nextAlarm,
-                clock = settings.clock,
-            ),
-            actions = actions,
-            onOpenApps = { withSearch ->
-                focusSearch = withSearch
-                drawerOpen = true
-            },
-            onOpenSettings = { },
-        )
+        HorizontalPager(state = pager, beyondViewportPageCount = 0, key = { it }) { page ->
+            if (page == homePage) {
+                HomeScreen(
+                    state = HomeState(
+                        favorites = resolve(settings.favorites ?: defaults.favorites),
+                        dock = resolve(settings.dock ?: defaults.dock),
+                        battery = battery,
+                        nextAlarm = nextAlarm,
+                        clock = settings.clock,
+                    ),
+                    actions = actions,
+                    onOpenApps = { withSearch ->
+                        focusSearch = withSearch
+                        drawerOpen = true
+                    },
+                    onOpenSettings = { },
+                )
+            } else {
+                QuickPage(
+                    quick = resolve(settings.quick ?: defaults.quick),
+                    storage = storage,
+                    battery = battery,
+                    actions = actions,
+                    onOpenSettings = { },
+                )
+            }
+        }
+        // Back from the quick page goes home.
+        BackHandler(enabled = !drawerOpen && pager.currentPage != homePage) {
+            scope.launch { pager.animateScrollToPage(homePage) }
+        }
         AnimatedVisibility(
             visible = drawerOpen,
             enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { it / 8 },
