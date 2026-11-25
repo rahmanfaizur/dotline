@@ -20,6 +20,9 @@ import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.rahmanfaizur.dotline.data.TileStyle
+import dev.rahmanfaizur.dotline.data.WallpaperKind
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
@@ -45,7 +48,11 @@ class LauncherUiTest {
 
     /** Every test starts with the set-home tile not dismissed, and leaves it that way. */
     @Before @After fun resetHomePrompt() {
-        runBlocking { app.settings.setHomePromptDismissed(false) }
+        runBlocking {
+            app.settings.setHomePromptDismissed(false)
+            app.settings.setWallpaper(WallpaperKind.Black)
+            app.settings.setTileStyle(TileStyle.Smoke)
+        }
     }
 
     private fun openSearch() {
@@ -135,5 +142,16 @@ class LauncherUiTest {
         rule.waitForIdle()
         assertNotEquals(first, sectionLetter())
         rule.onNodeWithTag("letterStrip").performTouchInput { up() }
+    }
+
+    @Test fun lookSectionChangesWallpaperAndTiles() {
+        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("lookPreview").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("wallpaper:Sunset").performScrollTo().performClick()
+        rule.onNodeWithTag("tiles:Clear glass").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            val now = runBlocking { app.settings.settings.first() }
+            now.wallpaper == WallpaperKind.Sunset && now.tileStyle == TileStyle.Glass
+        }
     }
 }

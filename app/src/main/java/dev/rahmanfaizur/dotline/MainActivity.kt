@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
@@ -32,6 +33,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import dev.rahmanfaizur.dotline.data.WallpaperKind
+import dev.rahmanfaizur.dotline.ui.common.Backdrop
+import dev.rahmanfaizur.dotline.ui.common.WallpaperArea
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -71,6 +81,24 @@ class MainActivity : ComponentActivity() {
     /** Set once Android's popup was shown and declined, so the next tap goes to Settings instead. */
     private var roleDeclined = false
 
+    /** Which wallpaper the photo being picked is for (My photo or Halftone). */
+    private var photoFor: WallpaperKind? = null
+
+    /** Android's photo picker: Dotline only receives the one photo chosen, no storage access. */
+    private val photoPicker = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val kind = photoFor
+        photoFor = null
+        if (uri != null && kind != null) {
+            val app = application as DotlineApp
+            app.appScope.launch { if (app.wallpapers.savePhoto(uri)) app.settings.setWallpaper(kind) }
+        }
+    }
+
+    private fun pickPhoto(kind: WallpaperKind) {
+        photoFor = kind
+        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
     private val roleRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         refreshHomeRole()
         if (!isDefaultHome) roleDeclined = true
@@ -96,6 +124,7 @@ class MainActivity : ComponentActivity() {
                     settings = settings,
                     homePresses = homePresses,
                     home = HomeRole(isDefaultHome, ::askToBeHome, ::openHomeSettings),
+                    pickPhoto = ::pickPhoto,
                 )
             }
         }
@@ -141,7 +170,13 @@ class HomeRole(
 )
 
 @Composable
-private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: Int, home: HomeRole) {
+private fun Launcher(
+    app: DotlineApp,
+    settings: LauncherSettings,
+    homePresses: Int,
+    home: HomeRole,
+    pickPhoto: (WallpaperKind) -> Unit,
+) {
     val apps by app.apps.apps.collectAsStateWithLifecycle()
     val promptDismissed by app.settings.homePromptDismissed.collectAsStateWithLifecycle(true)
     // Created once; collection pauses automatically while the launcher isn't visible.
@@ -213,7 +248,23 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Dot.Black)) {
+    // The wallpaper is drawn once per change (on a background thread) at the screen's exact size.
+    var screen by remember { mutableStateOf(IntSize.Zero) }
+    val photoVersion by app.wallpapers.photoVersion.collectAsStateWithLifecycle()
+    val accentArgb = Dot.accent(settings.accent).toArgb()
+    val backdrop by produceState<Backdrop?>(null, settings.wallpaper, accentArgb, photoVersion, screen) {
+        value = if (screen.width == 0) null else {
+            app.wallpapers.render(settings.wallpaper, accentArgb, screen.width, screen.height)
+                ?.let { Backdrop(it.full.asImageBitmap(), it.frosted.asImageBitmap()) }
+        }
+    }
+    SideEffect { Dot.onWallpaper = backdrop != null }
+
+    WallpaperArea(
+        backdrop = backdrop,
+        style = settings.tileStyle,
+        modifier = Modifier.fillMaxSize().onSizeChanged { screen = it },
+    ) {
         // Registered first so every overlay's Back wins over it: on the home screen itself
         // Back does nothing, like any launcher (it used to close Dotline).
         BackHandler(enabled = true) {}
@@ -325,6 +376,10 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
             val store = app.settings
             SettingsScreen(
                 settings = settings,
+                backdrop = backdrop,
+                hasPhoto = app.wallpapers.hasPhoto,
+                photoVersion = photoVersion,
+                thumbnail = { k, w, h -> app.wallpapers.thumbnail(k, accentArgb, w, h) },
                 isDefaultHome = home.isDefault,
                 lists = SettingsLists(
                     favorites = resolve(favoriteKeys),
@@ -341,6 +396,12 @@ private fun Launcher(app: DotlineApp, settings: LauncherSettings, homePresses: I
                     setIconShape = { sh -> app.appScope.launch { store.setIconShape(sh) } },
                     setClock = { m -> app.appScope.launch { store.setClock(m) } },
                     setShowQuickPage = { on -> app.appScope.launch { store.setShowQuickPage(on) } },
+                    setWallpaper = { k ->
+                        if (k == WallpaperKind.Photo && !app.wallpapers.hasPhoto) pickPhoto(k)
+                        else app.appScope.launch { store.setWallpaper(k) }
+                    },
+                    pickPhoto = pickPhoto,
+                    setTileStyle = { st -> app.appScope.launch { store.setTileStyle(st) } },
                     setAsHome = home.ask,
                     changeHome = home.openSettings,
                     close = { settingsOpen = false },

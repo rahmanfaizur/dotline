@@ -37,6 +37,24 @@ import dev.rahmanfaizur.dotline.ui.common.Caption
 import dev.rahmanfaizur.dotline.ui.common.Gap
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import dev.rahmanfaizur.dotline.data.TileStyle
+import dev.rahmanfaizur.dotline.data.WallpaperKind
+import dev.rahmanfaizur.dotline.ui.common.Backdrop
+import dev.rahmanfaizur.dotline.ui.common.WallpaperArea
+import dev.rahmanfaizur.dotline.ui.common.tile
 
 class SettingsLists(
     val favorites: List<AppEntry>,
@@ -54,6 +72,9 @@ class SettingsActions(
     val setIconShape: (IconShape) -> Unit,
     val setClock: (ClockMode) -> Unit,
     val setShowQuickPage: (Boolean) -> Unit,
+    val setWallpaper: (WallpaperKind) -> Unit,
+    val pickPhoto: (WallpaperKind) -> Unit,
+    val setTileStyle: (TileStyle) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
     val close: () -> Unit,
@@ -62,6 +83,10 @@ class SettingsActions(
 @Composable
 fun SettingsScreen(
     settings: LauncherSettings,
+    backdrop: Backdrop?,
+    hasPhoto: Boolean,
+    photoVersion: Long,
+    thumbnail: suspend (WallpaperKind, Int, Int) -> Bitmap?,
     isDefaultHome: Boolean,
     lists: SettingsLists,
     actions: SettingsActions,
@@ -103,6 +128,8 @@ fun SettingsScreen(
                 }
             }
         }
+
+        LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent)
 
         AppListSection("Home apps", lists.favorites, actions.removeFavorite)
         AppListSection("Dock", lists.dock, actions.removeDock)
@@ -166,6 +193,148 @@ fun SettingsScreen(
             BasicText("Dotline · no internet access · settings stay on this phone", style = Dot.label.copy(color = Dot.Muted))
         }
         Spacer(Modifier.size(24.dp))
+    }
+}
+
+private val WallpaperNames = mapOf(
+    WallpaperKind.Black to "Black",
+    WallpaperKind.Photo to "My photo",
+    WallpaperKind.DotField to "Dot field",
+    WallpaperKind.Halftone to "Halftone",
+    WallpaperKind.Sunset to "Sunset",
+    WallpaperKind.Glow to "Glow",
+    WallpaperKind.Horizon to "Horizon",
+)
+
+private val TileNames = listOf(
+    TileStyle.Smoke to "Smoke glass",
+    TileStyle.Glass to "Clear glass",
+    TileStyle.Tinted to "Tinted",
+    TileStyle.Outline to "Outline",
+    TileStyle.Floating to "Floating",
+    TileStyle.Solid to "Solid",
+)
+
+/** Wallpaper + tile style, with a small live preview of the home screen. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LookSection(
+    settings: LauncherSettings,
+    backdrop: Backdrop?,
+    hasPhoto: Boolean,
+    photoVersion: Long,
+    thumbnail: suspend (WallpaperKind, Int, Int) -> Bitmap?,
+    actions: SettingsActions,
+    accent: Color,
+) {
+    Section("Look") {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            LookPreview(backdrop, settings.tileStyle)
+        }
+
+        Caption("Wallpaper")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            WallpaperKind.entries.forEach { kind ->
+                WallpaperOption(
+                    kind = kind,
+                    selected = settings.wallpaper == kind,
+                    accent = accent,
+                    key = Triple(settings.accent, photoVersion, hasPhoto),
+                    thumbnail = thumbnail,
+                    needsPhoto = kind == WallpaperKind.Photo && !hasPhoto,
+                    onClick = { actions.setWallpaper(kind) },
+                )
+            }
+        }
+        if (settings.wallpaper == WallpaperKind.Photo || settings.wallpaper == WallpaperKind.Halftone) {
+            Chip(
+                if (hasPhoto) "Change photo" else "Choose a photo",
+                selected = false, accent = accent, tag = "pickPhoto",
+                onClick = { actions.pickPhoto(settings.wallpaper) },
+            )
+        }
+
+        Caption("Tiles")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TileNames.forEach { (style, name) ->
+                Chip(name, settings.tileStyle == style, accent, tag = "tiles:$name") { actions.setTileStyle(style) }
+            }
+        }
+        if (backdrop == null && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Glass, TileStyle.Tinted)) {
+            BasicText("On a black wallpaper these tiles show as solid.", style = Dot.label.copy(color = Dot.Muted))
+        }
+    }
+}
+
+/** A tiny home screen drawn with the real wallpaper and tile code. */
+@Composable
+private fun LookPreview(backdrop: Backdrop?, style: TileStyle) {
+    WallpaperArea(
+        backdrop = backdrop,
+        style = style,
+        modifier = Modifier
+            .width(132.dp)
+            .aspectRatio(9f / 20f)
+            .clip(RoundedCornerShape(18.dp))
+            .border(2.dp, Dot.SurfaceHigh, RoundedCornerShape(18.dp))
+            .testTag("lookPreview"),
+    ) {
+        Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Spacer(Modifier.height(8.dp))
+            Column(Modifier.fillMaxWidth().tile(RoundedCornerShape(10.dp)).padding(7.dp)) {
+                BasicText("17:48", style = Dot.dots(22))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                repeat(2) { Box(Modifier.weight(1f).height(34.dp).tile(RoundedCornerShape(10.dp))) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                repeat(2) {
+                    Row(
+                        Modifier.weight(1f).tile(RoundedCornerShape(10.dp)).padding(5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) { Box(Modifier.size(12.dp).background(Dot.Ink, CircleShape)) }
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Box(Modifier.fillMaxWidth().height(16.dp).tile(RoundedCornerShape(50)))
+            Box(Modifier.fillMaxWidth().height(22.dp).tile(RoundedCornerShape(50)))
+        }
+    }
+}
+
+@Composable
+private fun WallpaperOption(
+    kind: WallpaperKind,
+    selected: Boolean,
+    accent: Color,
+    key: Any,
+    thumbnail: suspend (WallpaperKind, Int, Int) -> Bitmap?,
+    needsPhoto: Boolean,
+    onClick: () -> Unit,
+) {
+    val name = WallpaperNames.getValue(kind)
+    val image by produceState<ImageBitmap?>(null, kind, key) {
+        value = if (needsPhoto) null else thumbnail(kind, 108, 240)?.asImageBitmap()
+    }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick).testTag("wallpaper:$name"),
+    ) {
+        val shape = RoundedCornerShape(10.dp)
+        Box(
+            Modifier
+                .size(width = 50.dp, height = 104.dp)
+                .border(if (selected) 2.dp else 1.dp, if (selected) accent else Dot.SurfaceHigh, shape)
+                .padding(3.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(Dot.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            image?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            if (needsPhoto) BasicText("+", style = Dot.label.copy(color = Dot.Muted, fontSize = 22.sp))
+        }
+        Gap(4.dp)
+        BasicText(name, style = Dot.label.copy(fontSize = 11.sp, color = if (selected) Dot.Ink else Dot.Muted))
     }
 }
 
