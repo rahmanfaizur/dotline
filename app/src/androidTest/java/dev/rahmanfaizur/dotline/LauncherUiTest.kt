@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -297,6 +298,17 @@ class LauncherUiTest {
         rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("clockTile").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("clockTile").assertIsDisplayed()
+    }
+
+    @Test fun freshInstallNeverTouchesThePhonesWallpaper() {
+        val wm = android.app.WallpaperManager.getInstance(app)
+        runBlocking { app.settings.resetWallpaper() }
+        Thread.sleep(1_500) // let any earlier change settle
+        val before = wm.getWallpaperId(android.app.WallpaperManager.FLAG_SYSTEM)
+        runBlocking { app.settings.setAccent(2) } // any other change
+        Thread.sleep(2_500) // longer than the 800 ms wait before a wallpaper update
+        assertEquals(before, wm.getWallpaperId(android.app.WallpaperManager.FLAG_SYSTEM))
+        runBlocking { app.settings.setAccent(0) }
     }
 
     @Test fun phoneWallpaperFollowsDotline() {

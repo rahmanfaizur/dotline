@@ -60,6 +60,8 @@ data class LauncherSettings(
     val homeOrder: List<HomeBlock> = HomeBlock.Default,
     /** Also make it the phone's wallpaper, so Recents and app animations match Dotline. */
     val phoneWallpaper: Boolean = true,
+    /** True once a wallpaper was picked in Dotline; until then the phone's own wallpaper is never touched. */
+    val wallpaperChosen: Boolean = false,
     /** Swipe down on home opens the notification panel. */
     val swipeDownNotifications: Boolean = true,
     /** Search also answers sums and offers phone settings. */
@@ -119,6 +121,8 @@ class SettingsStore(context: Context) {
     suspend fun setClock(mode: ClockMode) = store.edit { it[CLOCK] = mode.name }
     suspend fun setShowQuickPage(show: Boolean) = store.edit { it[QUICK_PAGE] = show }
     suspend fun setWallpaper(kind: WallpaperKind) = store.edit { it[WALLPAPER] = kind.name }
+    /** Back to "never picked" (plain black, phone wallpaper left alone). */
+    suspend fun resetWallpaper() = store.edit { it.remove(WALLPAPER) }
     suspend fun setTileStyle(style: TileStyle) = store.edit { it[TILE_STYLE] = style.name }
     suspend fun setNotificationDots(on: Boolean) = store.edit { it[NOTIF_DOTS] = on }
     suspend fun setNowPlaying(on: Boolean) = store.edit { it[NOW_PLAYING] = on }
@@ -165,6 +169,7 @@ class SettingsStore(context: Context) {
         playerCard = this[PLAYER_CARD] ?: false,
         homeOrder = HomeBlock.parse(this[HOME_ORDER]),
         phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
+        wallpaperChosen = this[WALLPAPER] != null,
         swipeDownNotifications = this[SWIPE_DOWN] ?: true,
         smartSearch = this[SMART_SEARCH] ?: true,
         homeApps = (this[HOME_APPS] ?: 4).takeIf { it in listOf(4, 6, 8) } ?: 4,

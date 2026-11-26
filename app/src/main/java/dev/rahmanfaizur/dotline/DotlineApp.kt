@@ -98,7 +98,8 @@ class DotlineApp : Application() {
         // Keep the phone's own wallpaper the same as Dotline's (shows behind Recents and app animations).
         appScope.launch {
             settings.settings
-                .map { Triple(it.phoneWallpaper, it.wallpaper, it.accent) }
+                // Only after a wallpaper was picked in Dotline, so a fresh install never replaces yours.
+                .map { Triple(it.phoneWallpaper && it.wallpaperChosen, it.wallpaper, it.accent) }
                 .distinctUntilChanged()
                 .combine(wallpapers.photoVersion) { s, _ -> s }
                 .debounce(800)
