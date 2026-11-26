@@ -123,6 +123,32 @@ class MainActivity : ComponentActivity() {
         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
+    /** Backup: Android's own "save as" and "open" screens; Dotline only touches the one file you pick. */
+    private val backupSave = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val app = application as DotlineApp
+        app.appScope.launch {
+            val text = app.settings.exportBackup()
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) } != null }.getOrDefault(false)
+            }
+            android.widget.Toast.makeText(this@MainActivity, if (ok) "Dotline setup saved" else "Couldn't save", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    private val backupLoad = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val app = application as DotlineApp
+        app.appScope.launch {
+            val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { contentResolver.openInputStream(uri)?.use { s -> s.readBytes().takeIf { it.size < 1_000_000 }?.decodeToString() } }.getOrNull()
+            }
+            val ok = text != null && app.settings.importBackup(text)
+            android.widget.Toast.makeText(this@MainActivity, if (ok) "Dotline setup loaded" else "That isn't a Dotline backup", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    private fun saveBackup() = backupSave.launch("dotline-backup.json")
+    private fun loadBackup() = backupLoad.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+
     /** Android 13+ asks before an app may post; only used for the optional player card. */
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
@@ -171,6 +197,7 @@ class MainActivity : ComponentActivity() {
                     home = HomeRole(isDefaultHome, ::askToBeHome, ::openHomeSettings),
                     pickPhoto = ::pickPhoto,
                     allowPlayerCard = ::allowPlayerCard,
+                    backup = ::saveBackup to ::loadBackup,
                     notificationAccessOnResume = notificationAccess,
                 )
             }
@@ -239,6 +266,7 @@ private fun Launcher(
     home: HomeRole,
     pickPhoto: (WallpaperKind) -> Unit,
     allowPlayerCard: () -> Unit,
+    backup: Pair<() -> Unit, () -> Unit>,
     notificationAccessOnResume: Boolean,
 ) {
     val apps by app.apps.apps.collectAsStateWithLifecycle()
@@ -654,6 +682,8 @@ private fun Launcher(
                     setHomeApps = { n -> app.appScope.launch { store.setHomeApps(n) } },
                     setCompact = { on -> app.appScope.launch { store.setCompact(on) } },
                     setFoldersOn = { on -> app.appScope.launch { store.setFoldersOn(on) } },
+                    saveBackup = backup.first,
+                    loadBackup = backup.second,
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()

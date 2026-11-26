@@ -114,6 +114,8 @@ class SettingsActions(
     val setHomeApps: (Int) -> Unit = {},
     val setCompact: (Boolean) -> Unit = {},
     val setFoldersOn: (Boolean) -> Unit = {},
+    val saveBackup: () -> Unit = {},
+    val loadBackup: () -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -212,7 +214,7 @@ fun SettingsScreen(
                             },
                         ) { page = it }
                         PageRow(SettingsPage.Hidden, if (lists.hidden.isEmpty()) "None" else "${lists.hidden.size} hidden") { page = it }
-                        PageRow(SettingsPage.About, "No internet · private by design") { page = it }
+                        PageRow(SettingsPage.About, "Backup · no internet · private by design") { page = it }
                     }
                 }
 
@@ -392,10 +394,24 @@ fun SettingsScreen(
                     }
                 }
 
-                SettingsPage.About -> Section("Dotline") {
-                    BasicText("Your own launcher. It has no internet permission, so nothing can leave the phone.", style = Dot.label.copy(fontSize = 14.sp))
-                    BasicText("Settings and your picked photo stay inside the app's private storage.", style = Dot.label.copy(color = Dot.Muted))
-                    BasicText("Font: Doto (SIL Open Font License).", style = Dot.label.copy(color = Dot.Muted))
+                SettingsPage.About -> {
+                    Section("Backup") {
+                        SettingRow("Save your Dotline setup to a file") {
+                            Chip("Save", selected = false, accent = accent, tag = "backupSave", onClick = actions.saveBackup)
+                        }
+                        SettingRow("Load a saved setup") {
+                            Chip("Load", selected = false, accent = accent, tag = "backupLoad", onClick = actions.loadBackup)
+                        }
+                        BasicText(
+                            "Holds your layout, colours, folders and switches, plus which apps you pinned or hid. Not your photo. Keep the file somewhere private.",
+                            style = Dot.label.copy(color = Dot.Muted),
+                        )
+                    }
+                    Section("Dotline") {
+                        BasicText("Your own launcher. It has no internet permission, so nothing can leave the phone.", style = Dot.label.copy(fontSize = 14.sp))
+                        BasicText("Settings and your picked photo stay inside the app's private storage.", style = Dot.label.copy(color = Dot.Muted))
+                        BasicText("Font: Doto (SIL Open Font License).", style = Dot.label.copy(color = Dot.Muted))
+                    }
                 }
             }
             Spacer(Modifier.size(20.dp))
