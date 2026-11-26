@@ -109,6 +109,7 @@ class SettingsActions(
     val setPhoneWallpaper: (Boolean) -> Unit = {},
     val setSwipeDownNotifications: (Boolean) -> Unit = {},
     val setSmartSearch: (Boolean) -> Unit = {},
+    val setIconStyle: (dev.rahmanfaizur.dotline.data.IconStyle) -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -585,6 +586,20 @@ private fun LookSection(
                         .testTag("accent:${Dot.AccentNames[i]}"),
                 )
             }
+        }
+
+        Caption("Icons")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                dev.rahmanfaizur.dotline.data.IconStyle.Original to "App colours",
+                dev.rahmanfaizur.dotline.data.IconStyle.White to "Dot white",
+                dev.rahmanfaizur.dotline.data.IconStyle.Accent to "Dot accent",
+            ).forEach { (st, name) ->
+                Chip(name, settings.iconStyle == st, accent, tag = "icons:$name") { actions.setIconStyle(st) }
+            }
+        }
+        if (settings.iconStyle != dev.rahmanfaizur.dotline.data.IconStyle.Original) {
+            BasicText("Uses each app's simple one-colour icon (Android 13 and newer). Apps without one keep their own icon.", style = Dot.label.copy(color = Dot.Muted))
         }
 
         Caption("Icon shape")

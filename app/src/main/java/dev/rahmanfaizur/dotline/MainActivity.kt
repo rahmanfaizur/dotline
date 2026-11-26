@@ -4,6 +4,8 @@ import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Build
+import dev.rahmanfaizur.dotline.data.IconStyle
+import dev.rahmanfaizur.dotline.ui.LocalIconTint
 import dev.rahmanfaizur.dotline.data.StatusBar
 import androidx.compose.ui.graphics.graphicsLayer
 import android.os.Bundle
@@ -150,6 +152,11 @@ class MainActivity : ComponentActivity() {
                 LocalIconLoader provides app.icons,
                 LocalAccent provides Dot.accent(settings.accent),
                 LocalIconShape provides Dot.iconShape(settings.iconShape),
+                LocalIconTint provides when (settings.iconStyle) {
+                    IconStyle.Original -> 0
+                    IconStyle.White -> 0xFFF2F2F2.toInt()
+                    IconStyle.Accent -> Dot.accent(settings.accent).toArgb()
+                },
             ) {
                 Launcher(
                     app = app,
@@ -615,6 +622,7 @@ private fun Launcher(
                     setPhoneWallpaper = { on -> app.appScope.launch { store.setPhoneWallpaper(on) } },
                     setSwipeDownNotifications = { on -> app.appScope.launch { store.setSwipeDownNotifications(on) } },
                     setSmartSearch = { on -> app.appScope.launch { store.setSmartSearch(on) } },
+                    setIconStyle = { st -> app.appScope.launch { store.setIconStyle(st) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()

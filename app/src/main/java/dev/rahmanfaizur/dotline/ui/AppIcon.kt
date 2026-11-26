@@ -28,6 +28,9 @@ import dev.rahmanfaizur.dotline.ui.theme.LocalIconShape
 
 val LocalIconLoader = staticCompositionLocalOf<IconLoader> { error("IconLoader not provided") }
 
+/** Colour for dot-style icons (ARGB), or 0 for the apps' own icons. Settings → Look → Icons. */
+val LocalIconTint = staticCompositionLocalOf { 0 }
+
 /** Packages whose icons show a notification dot right now (empty unless the user turned dots on). */
 val LocalDots = compositionLocalOf<Set<String>> { emptySet() }
 
@@ -36,8 +39,9 @@ val LocalDots = compositionLocalOf<Set<String>> { emptySet() }
 fun AppIcon(app: AppEntry, size: Dp, modifier: Modifier = Modifier, shape: Shape = LocalIconShape.current) {
     val loader = LocalIconLoader.current
     val px = with(LocalDensity.current) { size.roundToPx() }
-    val bitmap by produceState(loader.peek(app, px), app.key, px) {
-        value = loader.load(app, px)
+    val tint = LocalIconTint.current
+    val bitmap by produceState(loader.peek(app, px, tint), app.key, px, tint) {
+        value = loader.load(app, px, tint)
     }
     val dot = app.component.packageName in LocalDots.current
     Box(modifier.size(size)) {

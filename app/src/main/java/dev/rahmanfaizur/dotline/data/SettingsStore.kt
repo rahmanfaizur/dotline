@@ -63,11 +63,15 @@ data class LauncherSettings(
     val swipeDownNotifications: Boolean = true,
     /** Search also answers sums and offers phone settings. */
     val smartSearch: Boolean = true,
+    val iconStyle: IconStyle = IconStyle.Original,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
 
 /** The movable parts of home, top to bottom by default. */
+/** App icons: their own colours, or their simple one-colour icon in white or the accent colour. */
+enum class IconStyle { Original, White, Accent }
+
 enum class HomeBlock { Clock, Status, Apps, Player;
     companion object {
         val Default = entries.toList()
@@ -107,6 +111,7 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setIconStyle(style: IconStyle) = store.edit { it[ICON_STYLE] = style.name }
     suspend fun setSmartSearch(on: Boolean) = store.edit { it[SMART_SEARCH] = on }
     suspend fun setSwipeDownNotifications(on: Boolean) = store.edit { it[SWIPE_DOWN] = on }
     suspend fun setPhoneWallpaper(on: Boolean) = store.edit { it[PHONE_WALLPAPER] = on }
@@ -139,6 +144,7 @@ class SettingsStore(context: Context) {
         phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
         swipeDownNotifications = this[SWIPE_DOWN] ?: true,
         smartSearch = this[SMART_SEARCH] ?: true,
+        iconStyle = this[ICON_STYLE]?.let { runCatching { IconStyle.valueOf(it) }.getOrNull() } ?: IconStyle.Original,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -168,6 +174,7 @@ class SettingsStore(context: Context) {
         val PHONE_WALLPAPER = booleanPreferencesKey("phone_wallpaper")
         val SWIPE_DOWN = booleanPreferencesKey("swipe_down_notifications")
         val SMART_SEARCH = booleanPreferencesKey("smart_search")
+        val ICON_STYLE = stringPreferencesKey("icon_style")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }
