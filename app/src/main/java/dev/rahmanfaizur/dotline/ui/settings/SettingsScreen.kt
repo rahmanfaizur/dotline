@@ -114,6 +114,7 @@ class SettingsActions(
     val setHomeApps: (Int) -> Unit = {},
     val setCompact: (Boolean) -> Unit = {},
     val setFoldersOn: (Boolean) -> Unit = {},
+    val openGuide: () -> Unit = {},
     val saveBackup: () -> Unit = {},
     val loadBackup: () -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
@@ -395,6 +396,24 @@ fun SettingsScreen(
                 }
 
                 SettingsPage.About -> {
+                    Section("How to use") {
+                        SettingRow("A quick guide to gestures, search and making Dotline yours") {
+                            Chip("Open", selected = false, accent = accent, tag = "openGuide", onClick = actions.openGuide)
+                        }
+                    }
+                    Section("Privacy & safety") {
+                        listOf(
+                            "No internet permission: nothing Dotline sees can leave your phone. No ads, tracking or accounts.",
+                            "Uninstall: only opens Android's own \"Uninstall?\" screen. You always confirm.",
+                            "Set wallpaper: only puts a picture on home or lock screen. It can't read any wallpaper.",
+                            "Notification access (optional, off): only which apps have a notification and the song playing. Never message text.",
+                            "Notifications (optional, off): only for the music card in the pull-down panel.",
+                            "Open the notification panel: only for swipe down on home.",
+                            "Photo picker: Dotline gets only the one photo you choose.",
+                            "No accessibility, device admin or screen reading. Your settings stay in the app's private storage.",
+                            "To remove: Settings → Apps → Default apps → Home, pick another launcher, then uninstall Dotline.",
+                        ).forEach { BasicText(it, style = Dot.label.copy(color = Dot.Muted, lineHeight = 18.sp)) }
+                    }
                     Section("Backup") {
                         SettingRow("Save your Dotline setup to a file") {
                             Chip("Save", selected = false, accent = accent, tag = "backupSave", onClick = actions.saveBackup)
@@ -410,6 +429,8 @@ fun SettingsScreen(
                     Section("Dotline") {
                         BasicText("Your own launcher. It has no internet permission, so nothing can leave the phone.", style = Dot.label.copy(fontSize = 14.sp))
                         BasicText("Settings and your picked photo stay inside the app's private storage.", style = Dot.label.copy(color = Dot.Muted))
+                        BasicText(dev.rahmanfaizur.dotline.ui.guide.CREDIT, style = Dot.label.copy(fontSize = 13.sp))
+                        BasicText(dev.rahmanfaizur.dotline.ui.guide.SOURCE, style = Dot.label.copy(color = Dot.Muted))
                         BasicText("Font: Doto (SIL Open Font License).", style = Dot.label.copy(color = Dot.Muted))
                     }
                 }

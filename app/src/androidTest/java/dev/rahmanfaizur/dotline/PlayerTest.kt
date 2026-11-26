@@ -72,6 +72,7 @@ class PlayerTest {
             app.settings.setNowPlaying(true)
             app.settings.setSpotifyOnly(false) // the test session isn't Spotify
             app.settings.setHomePromptDismissed(true)
+            app.settings.setWelcomeSeen(true)
         }
         shell("cmd notification allow_listener $listener")
     }

@@ -4,6 +4,7 @@ import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Build
+import dev.rahmanfaizur.dotline.ui.guide.WelcomeGuide
 import dev.rahmanfaizur.dotline.ui.home.FolderActions
 import dev.rahmanfaizur.dotline.ui.home.HomeItem
 import dev.rahmanfaizur.dotline.domain.HomeLayout
@@ -274,6 +275,8 @@ private fun Launcher(
     val listenerConnected by app.notifications.connected.collectAsStateWithLifecycle()
     val notificationAccess = notificationAccessOnResume || listenerConnected
     val promptDismissed by app.settings.homePromptDismissed.collectAsStateWithLifecycle(true)
+    val welcomeSeen by app.settings.welcomeSeen.collectAsStateWithLifecycle(true)
+    var guideOpen by rememberSaveable { mutableStateOf(false) }
     // Created once; collection pauses automatically while the launcher isn't visible.
     val batteryFlow = remember(app) { app.system.battery() }
     val alarmFlow = remember(app) { app.system.nextAlarm() }
@@ -682,6 +685,7 @@ private fun Launcher(
                     setHomeApps = { n -> app.appScope.launch { store.setHomeApps(n) } },
                     setCompact = { on -> app.appScope.launch { store.setCompact(on) } },
                     setFoldersOn = { on -> app.appScope.launch { store.setFoldersOn(on) } },
+                    openGuide = { guideOpen = true },
                     saveBackup = backup.first,
                     loadBackup = backup.second,
                     setPlayerCard = { on ->
@@ -703,6 +707,14 @@ private fun Launcher(
         }
         // Settings sits above the menu's Back handler, so it is registered last.
         BackHandler(enabled = settingsOpen && menuFor == null) { settingsOpen = false }
+
+        // Welcome guide: once on first open, and from Settings → About → How to use.
+        if (!welcomeSeen || guideOpen) {
+            WelcomeGuide(onDone = {
+                guideOpen = false
+                app.appScope.launch { app.settings.setWelcomeSeen(true) }
+            })
+        }
     }
     }
 }

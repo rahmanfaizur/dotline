@@ -57,6 +57,7 @@ class LauncherUiTest {
     @Before @After fun resetHomePrompt() {
         runBlocking {
             app.settings.setHomePromptDismissed(false)
+            app.settings.setWelcomeSeen(true)
             app.settings.setWallpaper(WallpaperKind.Black)
             app.settings.setTileStyle(TileStyle.Smoke)
             dev.rahmanfaizur.dotline.data.Feature.entries.forEach { app.features.set(it, true) }
@@ -426,6 +427,23 @@ class LauncherUiTest {
                 app.settings.resetFavorites()
             }
         }
+    }
+
+    @Test fun welcomeGuideShowsOnceAndReopensFromAbout() {
+        runBlocking { app.settings.setWelcomeSeen(false) }
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("welcomeGuide").fetchSemanticsNodes().isNotEmpty() }
+        repeat(4) { rule.onNodeWithTag("guideNext").performClick(); rule.waitForIdle() }
+        rule.onNode(hasText("Open source", substring = true)).assertIsDisplayed()
+        rule.onNodeWithTag("guideStart").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("welcomeGuide").fetchSemanticsNodes().isEmpty() }
+        assertTrue(runBlocking { app.settings.welcomeSeen.first() })
+        // Again from Settings → About → How to use.
+        openSettings()
+        rule.onNodeWithTag("page:About").performClick()
+        rule.onNodeWithTag("openGuide").performScrollTo().performClick()
+        rule.onNodeWithTag("welcomeGuide").assertIsDisplayed()
+        rule.onNodeWithTag("guideSkip").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("welcomeGuide").fetchSemanticsNodes().isEmpty() }
     }
 
     @Test fun lockPageShowsLockAndNightClockPreviews() {

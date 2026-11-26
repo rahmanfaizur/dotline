@@ -148,6 +148,12 @@ class SettingsStore(context: Context) {
     suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
     suspend fun setHomePromptDismissed(dismissed: Boolean) = store.edit { it[HOME_PROMPT_DISMISSED] = dismissed }
 
+    /** Whether the welcome guide was seen. Starts as true so it never flashes before loading. */
+    val welcomeSeen: Flow<Boolean> = store.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[WELCOME_SEEN] ?: false }
+    suspend fun setWelcomeSeen(seen: Boolean) = store.edit { it[WELCOME_SEEN] = seen }
+
     private fun Preferences.toSettings() = LauncherSettings(
         favorites = this[FAVORITES]?.split(),
         dock = this[DOCK]?.split(),
@@ -244,6 +250,7 @@ class SettingsStore(context: Context) {
         val FOLDERS_ON = booleanPreferencesKey("folders_on")
         val FOLDERS = stringPreferencesKey("folders")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
+        val WELCOME_SEEN = booleanPreferencesKey("welcome_seen")
 
         // What a backup holds, by type.
         val BOOL_KEYS = listOf(QUICK_PAGE, NOTIF_DOTS, NOW_PLAYING, SPOTIFY_ONLY, PLAYER_CARD, PHONE_WALLPAPER, SWIPE_DOWN, SMART_SEARCH, COMPACT, FOLDERS_ON)
