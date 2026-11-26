@@ -51,6 +51,7 @@ import dev.rahmanfaizur.dotline.data.Shortcut
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableFloatStateOf
@@ -123,6 +124,8 @@ fun HomeScreen(
     /** Swipe down on home; null when switched off in Settings. */
     onSwipeDown: (() -> Unit)? = null,
     clockStyle: ClockStyle = ClockStyle.Big,
+    homeApps: Int = 4,
+    compact: Boolean = false,
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -240,7 +243,7 @@ fun HomeScreen(
                                     Caption(date)
                                 }
                                 Gap(10.dp)
-                                BasicText(t, style = Dot.dots(76), modifier = Modifier.testTag("clock"))
+                                BasicText(t, style = Dot.dots(if (compact) 60 else 76), modifier = Modifier.testTag("clock"))
                             }
                             // Hours over minutes, with the day and date beside them.
                             ClockStyle.Stacked -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -267,15 +270,15 @@ fun HomeScreen(
                         }
                     }
                     HomeBlock.Status -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Tile(Modifier.weight(1f).height(112.dp).tileTap("Battery settings", enabled = !editing) { onTile(Shortcut.Battery) }) {
+                        Tile(Modifier.weight(1f).height(if (compact) 98.dp else 112.dp).tileTap("Battery settings", enabled = !editing) { onTile(Shortcut.Battery) }) {
                             val level = Dot.battery(state.battery?.percent, state.battery?.charging == true)
                             Caption(if (state.battery?.charging == true) "Charging" else "Battery")
-                            BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(38, level), modifier = Modifier.testTag("batteryLevel"))
+                            BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(if (compact) 30 else 38, level), modifier = Modifier.testTag("batteryLevel"))
                             DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = level)
                         }
-                        Tile(Modifier.weight(1f).height(112.dp).tileTap("Open alarms", enabled = !editing) { onTile(Shortcut.Alarms) }) {
+                        Tile(Modifier.weight(1f).height(if (compact) 98.dp else 112.dp).tileTap("Open alarms", enabled = !editing) { onTile(Shortcut.Alarms) }) {
                             Caption("Alarm")
-                            BasicText(state.nextAlarm?.let(::time) ?: "OFF", style = Dot.dots(38))
+                            BasicText(state.nextAlarm?.let(::time) ?: "OFF", style = Dot.dots(if (compact) 30 else 38))
                             Caption(
                                 state.nextAlarm?.let { DateFormat.format("EEE", Date(it)).toString() } ?: "None set",
                                 color = Dot.faint,
@@ -283,13 +286,15 @@ fun HomeScreen(
                         }
                     }
                     HomeBlock.Apps -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Four favourite apps, two per row
-                        state.favorites.take(4).withIndex().chunked(2).forEach { row ->
+                        // Your apps: two named tiles per row, or four icon-only tiles in compact mode.
+                        val perRow = if (compact) 4 else 2
+                        state.favorites.take(homeApps).withIndex().chunked(perRow).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 row.forEach { (index, app) ->
-                                    AppTile(app, Modifier.weight(1f).homeApp(app, AppSlot(false, index), actions, edit, onSwapApps))
+                                    val m = Modifier.weight(1f).homeApp(app, AppSlot(false, index), actions, edit, onSwapApps)
+                                    if (compact) IconTile(app, m) else AppTile(app, m)
                                 }
-                                if (row.size == 1) Spacer(Modifier.weight(1f))
+                                repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                         if (state.favorites.isEmpty() && state.appsLoaded) {
@@ -404,6 +409,14 @@ private fun EditBar(onSettings: () -> Unit, onDone: () -> Unit) {
                 .testTag("editDone")
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         )
+    }
+}
+
+/** Compact mode: just the icon on a small square tile. */
+@Composable
+private fun IconTile(app: AppEntry, modifier: Modifier) {
+    Box(modifier.aspectRatio(1f).tile(TileShape), contentAlignment = Alignment.Center) {
+        AppIcon(app, 44.dp)
     }
 }
 

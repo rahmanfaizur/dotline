@@ -406,12 +406,14 @@ private fun Launcher(
                     onTile = { app.shortcuts.open(it) },
                     onSwipeDown = if (settings.swipeDownNotifications) ({ StatusBar.expandNotifications(context) }) else null,
                     clockStyle = settings.clockStyle,
+                    homeApps = settings.homeApps,
+                    compact = settings.compact,
                     editing = editingHome,
                     onEditChange = { editingHome = it },
                     blockOrder = settings.homeOrder,
                     onReorder = { order -> app.appScope.launch { app.settings.setHomeOrder(order) } },
                     onSwapApps = { a, b ->
-                        val shownFav = resolve(favoriteKeys).take(4).map { it.component.flattenToString() }
+                        val shownFav = resolve(favoriteKeys).take(settings.homeApps).map { it.component.flattenToString() }
                         val shownDock = resolve(dockKeys).take(4).map { it.component.flattenToString() }
                         fun keyAt(s: AppSlot) = (if (s.dock) shownDock else shownFav).getOrNull(s.index)
                         val ka = keyAt(a)
@@ -500,9 +502,10 @@ private fun Launcher(
 
             /** Shared add/remove logic for the three pinned lists. */
             fun toggle(list: List<String>, place: String, save: suspend (List<String>) -> Unit) {
-                val (updated, outcome) = Pins.toggle(list, key)
+                val max = if (place == "Home") settings.homeApps else Pins.MAX
+                val (updated, outcome) = Pins.toggle(list, key, max)
                 if (outcome == Pins.Outcome.Full) {
-                    menuNote = "$place already has ${Pins.MAX} apps. Remove one first."
+                    menuNote = "$place already has $max apps. Remove one first."
                 } else {
                     app.appScope.launch { save(updated) }
                     closeMenu()
@@ -625,6 +628,8 @@ private fun Launcher(
                     setSmartSearch = { on -> app.appScope.launch { store.setSmartSearch(on) } },
                     setIconStyle = { st -> app.appScope.launch { store.setIconStyle(st) } },
                     setClockStyle = { st -> app.appScope.launch { store.setClockStyle(st) } },
+                    setHomeApps = { n -> app.appScope.launch { store.setHomeApps(n) } },
+                    setCompact = { on -> app.appScope.launch { store.setCompact(on) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()

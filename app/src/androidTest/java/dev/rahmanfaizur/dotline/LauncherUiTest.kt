@@ -346,6 +346,32 @@ class LauncherUiTest {
         }
     }
 
+    @Test fun homeShowsMoreAppsAndCompactIcons() {
+        val hold = InstrumentationRegistry.getArguments().getString("holdMs")?.toLongOrNull() ?: 0L
+        val six = app.apps.apps.value.map { it.component.flattenToString() }.distinct().take(6)
+        try {
+            runBlocking {
+                app.settings.setFavorites(six)
+                app.settings.setHomeApps(6)
+            }
+            rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+            // In edit mode every shown app is a slot; with 6 allowed, more than 4 appear (the emulator has 5+ defaults).
+            rule.waitUntil(5_000) { rule.onAllNodesWithTag("slot:home:4").fetchSemanticsNodes().isNotEmpty() }
+            if (hold > 0) Thread.sleep(hold)
+            runBlocking { app.settings.setCompact(true) }
+            rule.waitForIdle()
+            rule.onNodeWithTag("slot:home:0").assertIsDisplayed()
+            if (hold > 0) Thread.sleep(hold)
+            rule.onNodeWithTag("editDone").performClick()
+        } finally {
+            runBlocking {
+                app.settings.setHomeApps(4)
+                app.settings.setCompact(false)
+                app.settings.resetFavorites()
+            }
+        }
+    }
+
     @Test fun lockPageShowsLockAndNightClockPreviews() {
         openSettings()
         rule.onNodeWithTag("page:Lock").performClick()

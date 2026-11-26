@@ -65,6 +65,10 @@ data class LauncherSettings(
     val smartSearch: Boolean = true,
     val iconStyle: IconStyle = IconStyle.Original,
     val clockStyle: ClockStyle = ClockStyle.Big,
+    /** How many app tiles home shows: 4, 6 or 8. */
+    val homeApps: Int = 4,
+    /** Smaller tiles; home apps as icons only. */
+    val compact: Boolean = false,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -101,6 +105,8 @@ class SettingsStore(context: Context) {
         .map { it[HOME_PROMPT_DISMISSED] ?: false }
 
     suspend fun setFavorites(list: List<String>) = store.edit { it[FAVORITES] = list.join() }
+    /** Back to the default home apps. */
+    suspend fun resetFavorites() = store.edit { it.remove(FAVORITES) }
     suspend fun setDock(list: List<String>) = store.edit { it[DOCK] = list.join() }
     suspend fun setQuick(list: List<String>) = store.edit { it[QUICK] = list.join() }
     suspend fun setHidden(set: Set<String>) = store.edit { it[HIDDEN] = set }
@@ -115,6 +121,8 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setHomeApps(count: Int) = store.edit { it[HOME_APPS] = count }
+    suspend fun setCompact(on: Boolean) = store.edit { it[COMPACT] = on }
     suspend fun setClockStyle(style: ClockStyle) = store.edit { it[CLOCK_STYLE] = style.name }
     suspend fun setIconStyle(style: IconStyle) = store.edit { it[ICON_STYLE] = style.name }
     suspend fun setSmartSearch(on: Boolean) = store.edit { it[SMART_SEARCH] = on }
@@ -149,6 +157,8 @@ class SettingsStore(context: Context) {
         phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
         swipeDownNotifications = this[SWIPE_DOWN] ?: true,
         smartSearch = this[SMART_SEARCH] ?: true,
+        homeApps = (this[HOME_APPS] ?: 4).takeIf { it in listOf(4, 6, 8) } ?: 4,
+        compact = this[COMPACT] ?: false,
         clockStyle = this[CLOCK_STYLE]?.let { runCatching { ClockStyle.valueOf(it) }.getOrNull() } ?: ClockStyle.Big,
         iconStyle = this[ICON_STYLE]?.let { runCatching { IconStyle.valueOf(it) }.getOrNull() } ?: IconStyle.Original,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
@@ -182,6 +192,8 @@ class SettingsStore(context: Context) {
         val SMART_SEARCH = booleanPreferencesKey("smart_search")
         val ICON_STYLE = stringPreferencesKey("icon_style")
         val CLOCK_STYLE = stringPreferencesKey("clock_style")
+        val HOME_APPS = intPreferencesKey("home_apps")
+        val COMPACT = booleanPreferencesKey("compact")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

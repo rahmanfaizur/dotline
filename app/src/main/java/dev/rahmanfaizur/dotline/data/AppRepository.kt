@@ -94,7 +94,8 @@ class AppRepository(private val context: Context, private val scope: CoroutineSc
         val installed = byPackage.keys
         fun components(packages: List<String>) = packages.mapNotNull { byPackage[it]?.component?.flattenToString() }
 
-        val favorites = Pins.pick(Pins.FAVORITE_PACKAGES, installed)
+        // Enough for the largest home (8); home shows as many as Settings says.
+        val favorites = Pins.pick(Pins.FAVORITE_PACKAGES, installed, count = 8)
         val dock = listOfNotNull(
             defaultPackage(Intent(Intent.ACTION_DIAL)),
             Telephony.Sms.getDefaultSmsPackage(context),

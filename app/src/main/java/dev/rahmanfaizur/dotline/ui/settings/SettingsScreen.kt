@@ -111,6 +111,8 @@ class SettingsActions(
     val setSmartSearch: (Boolean) -> Unit = {},
     val setIconStyle: (dev.rahmanfaizur.dotline.data.IconStyle) -> Unit = {},
     val setClockStyle: (dev.rahmanfaizur.dotline.data.ClockStyle) -> Unit = {},
+    val setHomeApps: (Int) -> Unit = {},
+    val setCompact: (Boolean) -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -250,6 +252,15 @@ fun SettingsScreen(
                     Section("Quick page") {
                         SwitchRow("Swipe right for calendar, storage and RAM", settings.showQuickPage, accent, "toggle:quickPage") {
                             actions.setShowQuickPage(!settings.showQuickPage)
+                        }
+                    }
+                    Section("Layout") {
+                        Caption("Apps on home")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(4, 6, 8).forEach { n -> Chip("$n", settings.homeApps == n, accent, tag = "homeApps:$n") { actions.setHomeApps(n) } }
+                        }
+                        SwitchRow("Compact: smaller tiles, apps as icons only", settings.compact, accent, "toggle:compact") {
+                            actions.setCompact(!settings.compact)
                         }
                     }
                     Section("Your apps") {
