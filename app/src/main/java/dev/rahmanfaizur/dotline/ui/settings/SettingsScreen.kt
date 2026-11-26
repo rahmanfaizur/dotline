@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import dev.rahmanfaizur.dotline.data.DrawerBackground
 import dev.rahmanfaizur.dotline.data.Feature
+import dev.rahmanfaizur.dotline.data.PlayerStyle
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -96,6 +97,8 @@ class SettingsActions(
     val setNotificationDots: (Boolean) -> Unit,
     val setNowPlaying: (Boolean) -> Unit,
     val openNotificationAccess: () -> Unit,
+    val setPlayerStyle: (PlayerStyle) -> Unit,
+    val setSpotifyOnly: (Boolean) -> Unit,
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -292,6 +295,20 @@ fun SettingsScreen(
                     Section("Now playing") {
                         SwitchRow("Song tile on home, with play, pause and skip", settings.nowPlaying, accent, "toggle:nowPlaying") {
                             actions.setNowPlaying(!settings.nowPlaying)
+                        }
+                        if (settings.nowPlaying) {
+                            Caption("Style")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(PlayerStyle.Glow to "Cover glow", PlayerStyle.DotWave to "Dot wave", PlayerStyle.Vinyl to "Vinyl").forEach { (st, name) ->
+                                    Chip(name, settings.playerStyle == st, accent, tag = "player:$name") { actions.setPlayerStyle(st) }
+                                }
+                            }
+                            Caption("Show for")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Chip("Spotify only", settings.spotifyOnly, accent, tag = "player:spotifyOnly") { actions.setSpotifyOnly(true) }
+                                Chip("Any music app", !settings.spotifyOnly, accent, tag = "player:anyApp") { actions.setSpotifyOnly(false) }
+                            }
+                            BasicText("The speaker chip on the player opens Android's own speaker picker.", style = Dot.label.copy(color = Dot.Muted))
                         }
                     }
                 }

@@ -48,6 +48,7 @@ import androidx.core.app.NotificationManagerCompat
 import dev.rahmanfaizur.dotline.domain.NotificationDots
 import dev.rahmanfaizur.dotline.notify.DotlineNotifications
 import dev.rahmanfaizur.dotline.ui.LocalDots
+import dev.rahmanfaizur.dotline.ui.home.PlayerActions
 import dev.rahmanfaizur.dotline.ui.common.useDarkText
 import dev.rahmanfaizur.dotline.ui.theme.LocalDarkText
 import androidx.compose.ui.Modifier
@@ -133,7 +134,7 @@ class MainActivity : ComponentActivity() {
                     homePresses = homePresses,
                     home = HomeRole(isDefaultHome, ::askToBeHome, ::openHomeSettings),
                     pickPhoto = ::pickPhoto,
-                    notificationAccess = notificationAccess,
+                    notificationAccessOnResume = notificationAccess,
                 )
             }
         }
@@ -189,9 +190,12 @@ private fun Launcher(
     homePresses: Int,
     home: HomeRole,
     pickPhoto: (WallpaperKind) -> Unit,
-    notificationAccess: Boolean,
+    notificationAccessOnResume: Boolean,
 ) {
     val apps by app.apps.apps.collectAsStateWithLifecycle()
+    // Allowed = Android said so when we came to the front, or the listener has just connected.
+    val listenerConnected by app.notifications.connected.collectAsStateWithLifecycle()
+    val notificationAccess = notificationAccessOnResume || listenerConnected
     val promptDismissed by app.settings.homePromptDismissed.collectAsStateWithLifecycle(true)
     // Created once; collection pauses automatically while the launcher isn't visible.
     val batteryFlow = remember(app) { app.system.battery() }
@@ -283,6 +287,12 @@ private fun Launcher(
     val installedPackages = remember(apps) { apps.mapTo(HashSet()) { it.component.packageName } }
     val dotApps = remember(settings.dotApps, installedPackages) { NotificationDots.chosen(settings.dotApps, installedPackages) }
     val dots = NotificationDots.visible(settings.notificationDots && notificationAccess, activeNotifications, dotApps)
+    val byPackage = remember(apps) { apps.associateBy { it.component.packageName } }
+    val shownPlayer = playing?.takeIf {
+        settings.nowPlaying && notificationAccess && (!settings.spotifyOnly || it.packageName == "com.spotify.music")
+    }
+    val outputFlow = remember(app) { app.audio.names() }
+    val outputName by outputFlow.collectAsStateWithLifecycle("This phone")
     fun openNotificationAccess() {
         val detail = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
             .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, ComponentName(context, DotlineNotifications::class.java).flattenToString())
@@ -322,11 +332,19 @@ private fun Launcher(
                     },
                     onOpenSettings = { settingsOpen = true },
                     onTile = { app.shortcuts.open(it) },
-                    nowPlaying = playing.takeIf { settings.nowPlaying && notificationAccess },
-                    openPlayer = { pkg ->
-                        context.packageManager.getLaunchIntentForPackage(pkg)?.let {
-                            runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                        }
+                    nowPlaying = shownPlayer,
+                    playerStyle = settings.playerStyle,
+                    playerActions = shownPlayer?.let { np ->
+                        PlayerActions(
+                            sourceName = byPackage[np.packageName]?.label ?: "Music",
+                            outputName = outputName,
+                            openPlayer = {
+                                context.packageManager.getLaunchIntentForPackage(np.packageName)?.let {
+                                    runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                }
+                            },
+                            openOutput = { app.audio.openPicker(np.packageName) },
+                        )
                     },
                     setHome = if (!home.isDefault && !promptDismissed) {
                         SetHomePrompt(
@@ -494,6 +512,8 @@ private fun Launcher(
                         if (on && !notificationAccess) openNotificationAccess()
                     },
                     openNotificationAccess = ::openNotificationAccess,
+                    setPlayerStyle = { st -> app.appScope.launch { store.setPlayerStyle(st) } },
+                    setSpotifyOnly = { only -> app.appScope.launch { store.setSpotifyOnly(only) } },
                     removeDotApp = { e -> app.appScope.launch { store.setDotApps(dotApps - e.component.packageName) } },
                     setAsHome = home.ask,
                     changeHome = home.openSettings,

@@ -85,7 +85,8 @@ fun HomeScreen(
     setHome: SetHomePrompt? = null,
     onTile: (Shortcut) -> Unit = {},
     nowPlaying: dev.rahmanfaizur.dotline.notify.NowPlaying? = null,
-    openPlayer: (String) -> Unit = {},
+    playerStyle: dev.rahmanfaizur.dotline.data.PlayerStyle = dev.rahmanfaizur.dotline.data.PlayerStyle.Glow,
+    playerActions: PlayerActions? = null,
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -167,7 +168,7 @@ fun HomeScreen(
             }
         }
 
-        nowPlaying?.let { np -> NowPlayingTile(np, openPlayer = { openPlayer(np.packageName) }) }
+        if (nowPlaying != null && playerActions != null) NowPlayingTile(nowPlaying, playerStyle, playerActions)
 
         Spacer(Modifier.weight(1f))
 
