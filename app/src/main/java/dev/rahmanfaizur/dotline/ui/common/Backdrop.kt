@@ -193,15 +193,25 @@ fun Modifier.tile(shape: Shape = TileShape, tone: TileTone? = null): Modifier = 
     val readable = if (tone == null) Modifier else {
         val backdrop = look.backdrop
         val area = look.area
+        // Re-check only when the tile really moved (not every frame of a swipe) or the look changed.
+        val last = remember(backdrop, look.effective, setting) { floatArrayOf(Float.NaN, Float.NaN, Float.NaN, Float.NaN) }
         Modifier
             .onGloballyPositioned { c ->
                 val a = area?.coords
                 if (backdrop == null || a == null || !a.isAttached || !c.isAttached) {
-                    tone.update(0f, look.effective, setting)
+                    if (!last[0].isNaN() || last[1].isNaN()) tone.update(0f, look.effective, setting)
+                    last[0] = Float.NaN; last[1] = 0f
                 } else {
                     val topLeft = a.localPositionOf(c, Offset.Zero)
-                    val r = androidx.compose.ui.geometry.Rect(topLeft, androidx.compose.ui.geometry.Size(c.size.width.toFloat(), c.size.height.toFloat()))
-                    tone.update(backdrop.brightnessBehind(a.size, r), look.effective, setting)
+                    val w = c.size.width.toFloat()
+                    val h = c.size.height.toFloat()
+                    val moved = last[0].isNaN() || kotlin.math.abs(last[0] - topLeft.x) > 24f || kotlin.math.abs(last[1] - topLeft.y) > 24f ||
+                        last[2] != w || last[3] != h
+                    if (moved) {
+                        last[0] = topLeft.x; last[1] = topLeft.y; last[2] = w; last[3] = h
+                        val r = androidx.compose.ui.geometry.Rect(topLeft, androidx.compose.ui.geometry.Size(w, h))
+                        tone.update(backdrop.brightnessBehind(a.size, r), look.effective, setting)
+                    }
                 }
             }
             .then(
