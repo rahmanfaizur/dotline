@@ -13,7 +13,7 @@ object Pins {
 
     /** Quick page out of the box. */
     val QUICK_PACKAGES = listOf(
-        "com.phonepe.app", "com.openai.chatgpt", "com.google.android.gm", "com.google.android.youtube",
+        "com.google.android.apps.messaging", "com.openai.chatgpt", "com.google.android.gm", "com.google.android.youtube",
         "com.google.android.apps.maps", "com.google.android.apps.photos", "com.google.android.calendar",
         "com.google.android.deskclock",
     )

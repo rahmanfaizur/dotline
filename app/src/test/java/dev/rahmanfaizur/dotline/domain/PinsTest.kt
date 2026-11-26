@@ -19,9 +19,9 @@ class PinsTest {
     }
 
     @Test fun `excluded apps are skipped so quick page doesn't repeat home`() {
-        val installed = setOf("com.phonepe.app", "com.google.android.gm", "com.google.android.youtube")
+        val installed = setOf("com.google.android.apps.messaging", "com.google.android.gm", "com.google.android.youtube")
         assertEquals(
-            listOf("com.phonepe.app", "com.google.android.youtube"),
+            listOf("com.google.android.apps.messaging", "com.google.android.youtube"),
             Pins.pick(Pins.QUICK_PACKAGES, installed, exclude = setOf("com.google.android.gm")),
         )
     }

@@ -8,7 +8,7 @@ class AppIndexTest {
 
     private val apps = listOf(
         "Blinkit", "Brave", "Camera", "ChatGPT", "Discord", "Gmail", "Instagram",
-        "PhonePe", "Play Store", "Settings", "Slack", "Spotify", "Wallet",
+        "Photo Booth", "Play Store", "Settings", "Slack", "Spotify", "Wallet",
         "WhatsApp", "Yellow Kite", "YouTube", "1Password", "Éclair Notes",
     )
 
