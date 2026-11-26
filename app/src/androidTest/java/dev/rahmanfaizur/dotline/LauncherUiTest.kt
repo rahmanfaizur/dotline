@@ -285,6 +285,23 @@ class LauncherUiTest {
         }
     }
 
+    @Test fun comingBackAlwaysLandsOnHome() {
+        rule.onNodeWithTag("home").performTouchInput { swipeRight() }
+        rule.onNodeWithTag("quickPage").assertIsDisplayed()
+        // Leave (like opening Recents or an app) and come back.
+        rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("clockTile").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("clockTile").assertIsDisplayed()
+    }
+
+    @Test fun phoneWallpaperFollowsDotline() {
+        val wm = android.app.WallpaperManager.getInstance(app)
+        val before = wm.getWallpaperId(android.app.WallpaperManager.FLAG_SYSTEM)
+        runBlocking { app.settings.setWallpaper(WallpaperKind.Glow) }
+        rule.waitUntil(10_000) { wm.getWallpaperId(android.app.WallpaperManager.FLAG_SYSTEM) != before }
+    }
+
     @Test fun lockPageShowsLockAndNightClockPreviews() {
         openSettings()
         rule.onNodeWithTag("page:Lock").performClick()

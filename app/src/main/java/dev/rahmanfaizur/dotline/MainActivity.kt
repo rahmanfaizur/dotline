@@ -4,6 +4,7 @@ import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Build
+import androidx.compose.ui.graphics.graphicsLayer
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -86,6 +87,9 @@ class MainActivity : ComponentActivity() {
 
     /** Bumped every time Home is pressed while we're already the home screen. */
     private var homePresses by mutableIntStateOf(0)
+    /** Counts comebacks to Dotline (from an app or Recents), so it can return to home with a little zoom. */
+    private var comebacks by mutableIntStateOf(0)
+    private var away = false
 
     /** Whether Dotline is the phone's default home app; re-checked every time we come back. */
     private var isDefaultHome by mutableStateOf(true)
@@ -150,6 +154,7 @@ class MainActivity : ComponentActivity() {
                     app = app,
                     settings = settings,
                     homePresses = homePresses,
+                    comebacks = comebacks,
                     home = HomeRole(isDefaultHome, ::askToBeHome, ::openHomeSettings),
                     pickPhoto = ::pickPhoto,
                     allowPlayerCard = ::allowPlayerCard,
@@ -189,6 +194,16 @@ class MainActivity : ComponentActivity() {
         if (!opened) startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (away) { away = false; comebacks++ }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        away = true
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.hasCategory(Intent.CATEGORY_HOME)) homePresses++
@@ -207,6 +222,7 @@ private fun Launcher(
     app: DotlineApp,
     settings: LauncherSettings,
     homePresses: Int,
+    comebacks: Int,
     home: HomeRole,
     pickPhoto: (WallpaperKind) -> Unit,
     allowPlayerCard: () -> Unit,
@@ -291,6 +307,19 @@ private fun Launcher(
         }
     }
 
+    // Coming back (from an app or Recents): land on the home page and zoom in gently, like Pixel.
+    val appear = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(comebacks) {
+        if (comebacks > 0) {
+            closeMenu()
+            closeDrawer()
+            editingHome = false
+            if (!settingsOpen && pager.currentPage != homePage) pager.scrollToPage(homePage)
+            appear.snapTo(0f)
+            appear.animateTo(1f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+        }
+    }
+
     // The wallpaper is drawn once per change (on a background thread) at the screen's exact size.
     var screen by remember { mutableStateOf(IntSize.Zero) }
     val photoVersion by app.wallpapers.photoVersion.collectAsStateWithLifecycle()
@@ -338,7 +367,18 @@ private fun Launcher(
 
         val darkText = useDarkText(settings.textTone, settings.tileStyle, backdrop)
         CompositionLocalProvider(LocalDarkText provides darkText, LocalTextTone provides settings.textTone) {
-        HorizontalPager(state = pager, beyondViewportPageCount = 0, key = { it }, userScrollEnabled = !editingHome) { page ->
+        HorizontalPager(
+            state = pager,
+            beyondViewportPageCount = 0,
+            key = { it },
+            userScrollEnabled = !editingHome,
+            modifier = Modifier.graphicsLayer {
+                val t = appear.value
+                scaleX = 0.94f + 0.06f * t
+                scaleY = 0.94f + 0.06f * t
+                alpha = 0.35f + 0.65f * t
+            },
+        ) { page ->
             if (page == homePage) {
                 HomeScreen(
                     state = HomeState(
@@ -565,6 +605,7 @@ private fun Launcher(
                     openNotificationAccess = ::openNotificationAccess,
                     setPlayerStyle = { st -> app.appScope.launch { store.setPlayerStyle(st) } },
                     setSpotifyOnly = { only -> app.appScope.launch { store.setSpotifyOnly(only) } },
+                    setPhoneWallpaper = { on -> app.appScope.launch { store.setPhoneWallpaper(on) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()
