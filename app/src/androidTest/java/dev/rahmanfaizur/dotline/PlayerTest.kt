@@ -102,4 +102,31 @@ class PlayerTest {
         while (!paused && System.currentTimeMillis() < end) Thread.sleep(50)
         assertTrue("pause reached the music app", paused)
     }
+
+    private fun cardShown(): Boolean =
+        app.getSystemService(android.app.NotificationManager::class.java).activeNotifications.any { it.id == dev.rahmanfaizur.dotline.notify.PlayerCard.ID }
+
+    private fun waitFor(ms: Long, check: () -> Boolean): Boolean {
+        val end = System.currentTimeMillis() + ms
+        while (System.currentTimeMillis() < end) { if (check()) return true; Thread.sleep(100) }
+        return check()
+    }
+
+    @Test fun playerCardShowsInThePanelAndItsButtonsWork() {
+        shell("pm grant ${app.packageName} android.permission.POST_NOTIFICATIONS")
+        try {
+            runBlocking { app.settings.setPlayerCard(true) }
+            assertTrue("card posted", waitFor(10_000) { cardShown() })
+            // Optional pause for a screenshot of the panel (-e holdMs 8000).
+            InstrumentationRegistry.getArguments().getString("holdMs")?.toLongOrNull()?.let { Thread.sleep(it) }
+            app.sendBroadcast(
+                android.content.Intent(app, dev.rahmanfaizur.dotline.notify.PlayerCardReceiver::class.java)
+                    .setAction(dev.rahmanfaizur.dotline.notify.PlayerCard.ACTION_PLAY_PAUSE),
+            )
+            assertTrue("pause from the card reached the music app", waitFor(5_000) { paused })
+        } finally {
+            runBlocking { app.settings.setPlayerCard(false) }
+        }
+        assertTrue("card gone when switched off", waitFor(5_000) { !cardShown() })
+    }
 }

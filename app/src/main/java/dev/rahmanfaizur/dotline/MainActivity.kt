@@ -3,6 +3,7 @@ package dev.rahmanfaizur.dotline
 import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -108,6 +109,21 @@ class MainActivity : ComponentActivity() {
         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
+    /** Android 13+ asks before an app may post; only used for the optional player card. */
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    private fun allowPlayerCard() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else if (!androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+            }
+        }
+    }
+
     private val roleRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         refreshHomeRole()
         if (!isDefaultHome) roleDeclined = true
@@ -134,6 +150,7 @@ class MainActivity : ComponentActivity() {
                     homePresses = homePresses,
                     home = HomeRole(isDefaultHome, ::askToBeHome, ::openHomeSettings),
                     pickPhoto = ::pickPhoto,
+                    allowPlayerCard = ::allowPlayerCard,
                     notificationAccessOnResume = notificationAccess,
                 )
             }
@@ -190,6 +207,7 @@ private fun Launcher(
     homePresses: Int,
     home: HomeRole,
     pickPhoto: (WallpaperKind) -> Unit,
+    allowPlayerCard: () -> Unit,
     notificationAccessOnResume: Boolean,
 ) {
     val apps by app.apps.apps.collectAsStateWithLifecycle()
@@ -515,6 +533,16 @@ private fun Launcher(
                     openNotificationAccess = ::openNotificationAccess,
                     setPlayerStyle = { st -> app.appScope.launch { store.setPlayerStyle(st) } },
                     setSpotifyOnly = { only -> app.appScope.launch { store.setSpotifyOnly(only) } },
+                    setPlayerCard = { on ->
+                        app.appScope.launch { store.setPlayerCard(on) }
+                        if (on) allowPlayerCard()
+                    },
+                    openSpotifyNotifications = {
+                        val i = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, "com.spotify.music")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        runCatching { context.startActivity(i) }
+                    },
                     removeDotApp = { e -> app.appScope.launch { store.setDotApps(dotApps - e.component.packageName) } },
                     setAsHome = home.ask,
                     changeHome = home.openSettings,

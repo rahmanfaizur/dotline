@@ -104,6 +104,8 @@ class SettingsActions(
     val openNotificationAccess: () -> Unit,
     val setPlayerStyle: (PlayerStyle) -> Unit,
     val setSpotifyOnly: (Boolean) -> Unit,
+    val setPlayerCard: (Boolean) -> Unit = {},
+    val openSpotifyNotifications: () -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -330,6 +332,15 @@ fun SettingsScreen(
                                 Chip("Any music app", !settings.spotifyOnly, accent, tag = "player:anyApp") { actions.setSpotifyOnly(false) }
                             }
                             BasicText("The speaker chip on the player opens Android's own speaker picker.", style = Dot.label.copy(color = Dot.Muted))
+                            Caption("Pull-down panel & lock screen")
+                            SwitchRow("Show this player there too", settings.playerCard, accent, "toggle:playerCard") {
+                                actions.setPlayerCard(!settings.playerCard)
+                            }
+                            if (settings.playerCard) {
+                                SettingRow("To hide Spotify's own grey player, turn off its playback notifications. Music keeps playing.") {
+                                    Chip("Spotify", selected = false, accent = accent, tag = "spotifyNotifications", onClick = actions.openSpotifyNotifications)
+                                }
+                            }
                         }
                     }
                 }

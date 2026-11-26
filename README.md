@@ -27,6 +27,8 @@ No internet permission. No ads. No tracking. Everything stays on the phone.
 
 <p align="center"><img src="docs/screenshots/players.jpg" width="420" alt="Cover glow, Dot wave and Vinyl player styles"></p>
 
+Switch on **Show this player there too** and the same player (Cover glow) also sits in the pull-down panel and on the lock screen. Turn off Spotify's own playback notifications if you only want Dotline's.
+
 **Notification dots** (optional). A small accent dot on the apps you choose while they have notifications.
 
 **Lock screen and clock.** Put the chosen wallpaper on the lock screen, open a full-screen Night clock (shows over the lock screen like an alarm, never unlocks anything), or use the dot clock as the screensaver while charging.
@@ -50,6 +52,7 @@ Dotline has **no internet permission**, so nothing it sees can leave the phone. 
 | `REQUEST_DELETE_PACKAGES` | Opens Android's own "Uninstall this app?" screen | Only when you tap Uninstall, and you still confirm |
 | `SET_WALLPAPER` | Puts the chosen look on the lock screen | Only when you tap Set; it can't read any wallpaper |
 | Notification access | Dots on chosen apps and Now playing | Off by default. You allow it in Android's settings; Dotline keeps only which apps have a notification and the current song, never notification text |
+| `POST_NOTIFICATIONS` | The optional player card in the pull-down panel and on the lock screen | Off by default. Only after you switch it on, and Android asks you first |
 | Photo picker | My photo and Halftone wallpapers | Android's picker hands over only the one photo you choose |
 
 There is no accessibility service, device admin, analytics, crash reporting or ads. [`scripts/check-permissions.sh`](scripts/check-permissions.sh) fails if any other permission appears in the APK.
@@ -71,7 +74,7 @@ Release signing reads `~/.config/dotline/keystore.properties` (or the path in `D
 
 ```bash
 ./gradlew testDebugUnitTest             # search, sections, pins, calendar, halftone, blur, dots
-./gradlew connectedDebugAndroidTest     # 34 tests that drive the launcher on a device or emulator
+./gradlew connectedDebugAndroidTest     # 37 tests that drive the launcher on a device or emulator
 ```
 
 The device tests cover the home screen, search, the app list and its scroll handle, every settings page, wallpapers, panel tiles, the screensaver, notification dots, and all three player styles through a real media session.
