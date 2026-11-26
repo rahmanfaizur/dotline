@@ -12,7 +12,8 @@ class NowPlaying(
     val artist: String,
     val art: Bitmap?,
     val playing: Boolean,
-    val controller: MediaController,
+    /** Null only for the sample song in Settings' preview. */
+    val controller: MediaController?,
     /** Song length in ms (0 if the player doesn't say). */
     val durationMs: Long = 0,
     /** Position in ms at [positionAtMs] (elapsedRealtime), advancing at [speed] while playing. */

@@ -95,7 +95,7 @@ fun NowPlayingTile(np: NowPlaying, style: PlayerStyle, actions: PlayerActions, m
         }
     }
     val fraction = if (np.durationMs > 0) (position.toFloat() / np.durationMs).coerceIn(0f, 1f) else 0f
-    val seek: (Float) -> Unit = { f -> if (np.durationMs > 0) np.controller.transportControls.seekTo((f * np.durationMs).toLong()) }
+    val seek: (Float) -> Unit = { f -> if (np.durationMs > 0) np.controller?.transportControls?.seekTo((f * np.durationMs).toLong()) }
     val m = modifier.fillMaxWidth().testTag("nowPlaying")
     when (style) {
         PlayerStyle.Glow -> GlowPlayer(np, art, fraction, seek, actions, m)
@@ -132,11 +132,11 @@ private fun GlowPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, seek:
                 ) { if (np.playing) PauseGlyph(Color(0xFF111111)) else PlayGlyph(Color(0xFF111111)) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Control("Previous", { np.controller.transportControls.skipToPrevious() }) { SkipGlyph(Color.White, forward = false) }
+                Control("Previous", { np.controller?.transportControls?.skipToPrevious() }) { SkipGlyph(Color.White, forward = false) }
                 WaveProgress(fraction, np.playing, seek, Modifier.weight(1f).height(28.dp))
-                Control("Next", { np.controller.transportControls.skipToNext() }) { SkipGlyph(Color.White, forward = true) }
+                Control("Next", { np.controller?.transportControls?.skipToNext() }) { SkipGlyph(Color.White, forward = true) }
                 np.likeAction?.let { like ->
-                    Control(if (np.liked) "Unlike" else "Like", { np.controller.transportControls.sendCustomAction(like, null) }) {
+                    Control(if (np.liked) "Unlike" else "Like", { np.controller?.transportControls?.sendCustomAction(like, null) }) {
                         HeartGlyph(Color.White, filled = np.liked)
                     }
                 }
@@ -192,14 +192,14 @@ private fun DotWavePlayer(np: NowPlaying, art: ImageBitmap?, position: Long, fra
         DotProgress(fraction, seek, accent)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             BasicText(mmss(position), style = Dot.caption.copy(fontSize = 11.sp))
-            Control("Previous", { np.controller.transportControls.skipToPrevious() }) { SkipGlyph(Dot.ink, forward = false) }
+            Control("Previous", { np.controller?.transportControls?.skipToPrevious() }) { SkipGlyph(Dot.ink, forward = false) }
             Box(
                 Modifier.size(46.dp).clip(CircleShape).background(accent)
                     .clickable(onClickLabel = if (np.playing) "Pause" else "Play") { playPause(np) }
                     .testTag("playPause"),
                 contentAlignment = Alignment.Center,
             ) { if (np.playing) PauseGlyph(Color.Black) else PlayGlyph(Color.Black) }
-            Control("Next", { np.controller.transportControls.skipToNext() }) { SkipGlyph(Dot.ink, forward = true) }
+            Control("Next", { np.controller?.transportControls?.skipToNext() }) { SkipGlyph(Dot.ink, forward = true) }
             BasicText(mmss(np.durationMs), style = Dot.caption.copy(fontSize = 11.sp))
         }
     }
@@ -256,11 +256,11 @@ private fun VinylPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, a: P
                 BasicText("${np.artist} · ${a.sourceName}", style = Dot.label.copy(color = Dot.muted, fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Control("Previous", { np.controller.transportControls.skipToPrevious() }) { SkipGlyph(Dot.ink, forward = false) }
+                Control("Previous", { np.controller?.transportControls?.skipToPrevious() }) { SkipGlyph(Dot.ink, forward = false) }
                 Control(if (np.playing) "Pause" else "Play", { playPause(np) }, Modifier.testTag("playPause")) {
                     if (np.playing) PauseGlyph(Dot.ink) else PlayGlyph(Dot.ink)
                 }
-                Control("Next", { np.controller.transportControls.skipToNext() }) { SkipGlyph(Dot.ink, forward = true) }
+                Control("Next", { np.controller?.transportControls?.skipToNext() }) { SkipGlyph(Dot.ink, forward = true) }
                 Spacer(Modifier.weight(1f))
                 OutputChip(a.outputName, a.openOutput, compact = true)
             }
@@ -283,7 +283,7 @@ private fun Modifier.seekGestures(seek: (Float) -> Unit, onDrag: (Float?) -> Uni
         }
 
 private fun playPause(np: NowPlaying) =
-    if (np.playing) np.controller.transportControls.pause() else np.controller.transportControls.play()
+    if (np.playing) np.controller?.transportControls?.pause() else np.controller?.transportControls?.play()
 
 private fun mmss(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)
