@@ -1,53 +1,94 @@
-# dotline
+<p align="center"><img src="docs/banner.png" alt="Dotline" width="760"></p>
 
-A fast, private Android home screen with a black, dot-matrix look.
+<p align="center">
+A fast, private Android home screen in a black, dot-matrix style.<br>
+No internet permission. No ads. No tracking. Everything stays on the phone.
+</p>
+
+<p align="center">
+<img src="docs/screenshots/home-black.jpg" width="200" alt="Home screen on black">
+<img src="docs/screenshots/home-sunset.jpg" width="200" alt="Home screen with a wallpaper and glass tiles">
+<img src="docs/screenshots/app-list.jpg" width="200" alt="All apps over a frosted wallpaper">
+</p>
 
 ## What it does
 
-- **Home (Bento):** round-dot clock, live battery and next-alarm tiles, four app tiles, search pill and a four-app dock.
-- **All apps:** swipe up. Real app icons, a big letter showing where you are, and an A–Z strip to jump. Pull down to close.
-- **Search:** type a few letters and press Enter to open the top match. Handles prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents.
-- **Quick page:** swipe right for a dot calendar, free storage, battery health and four quick-open apps.
-- **Long-press any app:** app info, add or remove from home, dock or quick open, hide, uninstall (Android asks to confirm).
-- **Settings:** long-press empty home. Accent colour, round or rounded-square icons, 12/24-hour clock, quick page on or off, hidden apps.
+**Home.** A round-dot clock, live battery and next-alarm tiles, four favourite apps, a search bar and a dock. Tap the clock, battery or alarm tile to open the matching app or setting.
+
+**All apps.** Swipe up. Real app icons, a big dot letter for the section you're in, and a slim scroll handle on the right edge: drag it and a drop-shaped bubble shows the letter as you fly through the list. Pull down (or press Home) to close.
+
+**Search.** Type a few letters and press Enter to open the top match. It understands prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents.
+
+**Quick page.** Swipe right for a dot calendar, free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Files, memory details).
+
+**Look.** Pick a wallpaper (your own photo, or one of five drawn by Dotline: Dot field, Halftone, Sunset, Glow, Horizon), a tile style (smoke glass, clear glass, tinted, outline, floating, solid), the text colour on tiles (auto, white or black), the app list background, seven accent colours and round or rounded-square icons. Live previews show home and the app list as you change things.
+
+**Now playing** (optional). Spotify, or any music app, on your home in one of three styles, with play/pause, skip, a progress bar you can drag and a speaker chip that opens Android's own speaker picker.
+
+<p align="center"><img src="docs/screenshots/players.jpg" width="420" alt="Cover glow, Dot wave and Vinyl player styles"></p>
+
+**Notification dots** (optional). A small accent dot on the apps you choose while they have notifications.
+
+**Lock screen and clock.** Put the chosen wallpaper on the lock screen, open a full-screen Night clock (shows over the lock screen like an alarm, never unlocks anything), or use the dot clock as the screensaver while charging.
+
+**Panel tiles.** "Next wallpaper" and "RAM" tiles for the phone's pull-down panel.
+
+**Long-press any app** for app info, add or remove from home, dock or quick open, hide, notification dot, or uninstall (Android asks you to confirm). **Long-press empty space** for Settings.
+
+<p align="center">
+<img src="docs/screenshots/quick-page.jpg" width="200" alt="Quick page with calendar, storage and RAM">
+<img src="docs/screenshots/settings.jpg" width="200" alt="Settings pages">
+<img src="docs/screenshots/look.jpg" width="200" alt="Look settings">
+</p>
 
 ## Private by design
 
-- **No internet permission.** The app cannot send anything off the phone.
-- No notification access, accessibility service, device admin, analytics, ads or tracking libraries.
-- The only permission opens Android's own uninstall confirmation.
-- Settings are stored only on the phone (DataStore, app-private).
-- `scripts/check-permissions.sh` fails if any other permission appears in the built APK.
+Dotline has **no internet permission**, so nothing it sees can leave the phone. Settings and a photo you pick stay in the app's private storage.
+
+| What | Why | When |
+|---|---|---|
+| `REQUEST_DELETE_PACKAGES` | Opens Android's own "Uninstall this app?" screen | Only when you tap Uninstall, and you still confirm |
+| `SET_WALLPAPER` | Puts the chosen look on the lock screen | Only when you tap Set; it can't read any wallpaper |
+| Notification access | Dots on chosen apps and Now playing | Off by default. You allow it in Android's settings; Dotline keeps only which apps have a notification and the current song, never notification text |
+| Photo picker | My photo and Halftone wallpapers | Android's picker hands over only the one photo you choose |
+
+There is no accessibility service, device admin, analytics, crash reporting or ads. [`scripts/check-permissions.sh`](scripts/check-permissions.sh) fails if any other permission appears in the APK.
 
 ## Build
 
-Requirements: JDK 17+ and the Android SDK (platform 36).
+Requirements: JDK 17+ and the Android SDK (platform 36). Runs on Android 10 and newer.
 
 ```bash
 ./gradlew assembleDebug                 # debug APK
-./gradlew assembleRelease               # shrunk release APK (~2 MB)
-scripts/check-permissions.sh            # privacy gate (debug APK by default)
+./gradlew assembleRelease               # shrunk release APK (about 2 MB)
+scripts/check-permissions.sh            # privacy check (debug APK by default)
 scripts/check-permissions.sh app/build/outputs/apk/release/app-release.apk
 ```
 
-Release signing reads `~/.config/dotline/keystore.properties` (or the path in `DOTLINE_KEYSTORE_PROPERTIES`). The key is never stored in this repo. Without it, release builds are unsigned.
+Release signing reads `~/.config/dotline/keystore.properties` (or the path in `DOTLINE_KEYSTORE_PROPERTIES`). The signing key is never stored in this repository; without it, release builds are unsigned.
 
 ## Tests
 
 ```bash
-./gradlew testDebugUnitTest             # search, sections, pins, calendar, sizes
-./gradlew connectedDebugAndroidTest     # UI tests on a connected device or emulator
+./gradlew testDebugUnitTest             # search, sections, pins, calendar, halftone, blur, dots
+./gradlew connectedDebugAndroidTest     # 34 tests that drive the launcher on a device or emulator
 ```
 
-## Performance (Pixel 5 emulator, software graphics)
+The device tests cover the home screen, search, the app list and its scroll handle, every settings page, wallpapers, panel tiles, the screensaver, notification dots, and all three player styles through a real media session.
 
-- About 27 MB of RAM at rest.
-- Smoother than the stock Pixel launcher under the same swipe test (median frame 53 ms vs 73 ms; both are slow only because the emulator has no GPU).
+## Performance
+
+Measured on a mid-range phone (60 Hz):
+
+- 99% of frames on time while scrolling the app list (median frame 8 ms).
+- Opens in about 0.3 s.
+- Uses less memory than the phone's own launcher.
+- Glass tiles reuse a blurred copy made once per wallpaper, so scrolling never re-blurs.
 
 ## Undo
 
-On the phone: Settings → Apps → Default apps → Home screen → pick your previous launcher.
+Settings → Home screen → Default launcher → **Change**, or on the phone: Settings → Apps → Default apps → Home screen.
 
 ## Credits
 
-Dot-matrix font: [Doto](https://github.com/oliverlalan/Doto), SIL Open Font License 1.1 (see `licenses/OFL-Doto.txt`).
+Dot-matrix font: [Doto](https://github.com/oliverlalan/Doto), SIL Open Font License 1.1 (see `licenses/OFL-Doto.txt`). Screenshots are from the Android emulator.
