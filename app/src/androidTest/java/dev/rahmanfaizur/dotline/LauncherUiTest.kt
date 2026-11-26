@@ -236,11 +236,12 @@ class LauncherUiTest {
         rule.onNodeWithTag("editDone").assertIsDisplayed()
         rule.onNodeWithTag("handle:Clock").performTouchInput {
             down(center)
-            repeat(30) { moveBy(Offset(0f, 20f)) }
+            repeat(60) { moveBy(Offset(0f, 25f)) }
             up()
         }
         rule.waitUntil(5_000) {
-            runBlocking { app.settings.settings.first().homeOrder.first() } != dev.rahmanfaizur.dotline.data.HomeBlock.Clock
+            // One long drag carries it past both the battery row and the apps (it must not stop after one).
+            runBlocking { app.settings.settings.first().homeOrder.indexOf(dev.rahmanfaizur.dotline.data.HomeBlock.Clock) } >= 2
         }
         rule.onNodeWithTag("editDone").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("editDone").fetchSemanticsNodes().isEmpty() }
@@ -263,6 +264,25 @@ class LauncherUiTest {
         // Put them back.
         after[0] = after[1].also { after[1] = after[0] }
         runBlocking { app.settings.setFavorites(after) }
+    }
+
+    @Test fun tilesStayReadableOnABrightWallpaper() {
+        // Optional pause per text setting for screenshots (-e holdMs 4000).
+        val hold = InstrumentationRegistry.getArguments().getString("holdMs")?.toLongOrNull() ?: 0L
+        runBlocking {
+            app.settings.setWallpaper(WallpaperKind.Sunset)
+            app.settings.setTileStyle(TileStyle.Outline)
+        }
+        try {
+            for (tone in dev.rahmanfaizur.dotline.data.TextTone.entries) {
+                runBlocking { app.settings.setTextTone(tone) }
+                rule.waitForIdle()
+                rule.onNodeWithTag("clockTile").assertIsDisplayed()
+                if (hold > 0) Thread.sleep(hold)
+            }
+        } finally {
+            runBlocking { app.settings.setTextTone(dev.rahmanfaizur.dotline.data.TextTone.Auto) }
+        }
     }
 
     @Test fun lockPageShowsLockAndNightClockPreviews() {

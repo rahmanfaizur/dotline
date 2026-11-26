@@ -19,7 +19,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
@@ -60,6 +64,23 @@ class HomeEditState {
     }
 
     fun clear() { from = null; app = null; offset = Offset.Zero }
+
+    /** Glides the dragged app into [to] (or back home), then swaps. Nothing ever stops halfway. */
+    suspend fun drop(onSwap: (AppSlot, AppSlot) -> Unit) {
+        val start = from ?: return
+        val to = target()
+        val origin = bounds[start]?.topLeft ?: Offset.Zero
+        val end = to?.let { (bounds[it]?.topLeft ?: origin) - origin } ?: Offset.Zero
+        val begin = offset
+        androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)) { t, _ ->
+            offset = begin + (end - begin) * t
+        }
+        if (to != null) {
+            onSwap(start, to)
+            kotlinx.coroutines.delay(160) // let the swapped apps appear before the floating copy goes
+        }
+        clear()
+    }
 }
 
 /**
@@ -76,6 +97,8 @@ fun Modifier.homeApp(
     if (edit == null) return@composed appClicks(app, actions)
     val accent = LocalAccent.current
     val hovered = edit.from != null && edit.from != slot && edit.target() == slot
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     this
         .onGloballyPositioned { edit.bounds[slot] = it.boundsInRoot() }
         .graphicsLayer { alpha = if (edit.from == slot) 0.3f else 1f }
@@ -83,11 +106,14 @@ fun Modifier.homeApp(
         .testTag(if (slot.dock) "slot:dock:${slot.index}" else "slot:home:${slot.index}")
         .pointerInput(slot, app) {
             detectDragGestures(
-                onDragStart = { edit.start(slot, app, it) },
+                onDragStart = {
+                    edit.start(slot, app, it)
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                },
                 onDrag = { change, d -> change.consume(); edit.offset += d },
                 onDragEnd = {
-                    edit.target()?.let { onSwap(slot, it) }
-                    edit.clear()
+                    if (edit.target() != null) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    scope.launch { edit.drop(onSwap) }
                 },
                 onDragCancel = { edit.clear() },
             )

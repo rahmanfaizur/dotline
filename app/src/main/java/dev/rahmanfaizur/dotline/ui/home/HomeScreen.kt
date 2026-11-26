@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -44,6 +45,8 @@ import dev.rahmanfaizur.dotline.ui.common.TileShape
 import dev.rahmanfaizur.dotline.ui.common.rememberMinuteTicker
 import dev.rahmanfaizur.dotline.ui.common.tile
 import dev.rahmanfaizur.dotline.ui.common.tileTap
+import dev.rahmanfaizur.dotline.ui.common.ProvideTileTone
+import dev.rahmanfaizur.dotline.ui.common.rememberTileTone
 import dev.rahmanfaizur.dotline.data.Shortcut
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
@@ -62,6 +65,15 @@ import androidx.compose.ui.zIndex
 import dev.rahmanfaizur.dotline.data.HomeBlock
 import dev.rahmanfaizur.dotline.ui.theme.LocalDarkText
 import kotlin.math.roundToInt
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.Locale
 
@@ -130,6 +142,19 @@ fun HomeScreen(
     var dragging by remember { mutableStateOf<HomeBlock?>(null) }
     var dragY by remember { mutableFloatStateOf(0f) }
     val heights = remember { HashMap<HomeBlock, Int>() }
+    // Blocks glide to their new place instead of jumping (each keeps a small offset that springs to 0).
+    val shifts = remember { HashMap<HomeBlock, Animatable<Float, AnimationVector1D>>() }
+    fun shift(b: HomeBlock) = shifts.getOrPut(b) { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    val glide = spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+    fun slide(b: HomeBlock, from: Float) {
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            shift(b).snapTo(from)
+            shift(b).animateTo(0f, glide)
+        }
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
     fun shown(b: HomeBlock) = b != HomeBlock.Player || (nowPlaying != null && playerActions != null)
     fun dragBlock(b: HomeBlock, dy: Float) {
         dragY += dy
@@ -141,6 +166,7 @@ fun HomeScreen(
             if (dragY > h / 2) {
                 order = order.toMutableList().apply { remove(b); add(indexOf(next) + 1, b) }
                 dragY -= h
+                slide(next, (heights[b] ?: 0) + spacingPx)
             }
         } else if (dragY < 0 && i > 0) {
             val prev = vis[i - 1]
@@ -148,6 +174,7 @@ fun HomeScreen(
             if (-dragY > h / 2) {
                 order = order.toMutableList().apply { remove(b); add(indexOf(prev), b) }
                 dragY += h
+                slide(prev, -((heights[b] ?: 0) + spacingPx))
             }
         }
     }
@@ -183,12 +210,15 @@ fun HomeScreen(
         }
 
         order.filter(::shown).forEachIndexed { i, block ->
+            // Keyed by block, so a block keeps its state (and the finger's drag) when it changes place.
+            key(block) {
             Box(
                 Modifier
                     .onSizeChanged { heights[block] = it.height }
-                    .zIndex(if (dragging == block) 1f else 0f)
+                    .zIndex(if (dragging == block) 2f else if (shift(block).isRunning) 1f else 0f)
                     .graphicsLayer {
-                        if (dragging == block) { translationY = dragY; scaleX = 1.02f; scaleY = 1.02f }
+                        translationY = (if (dragging == block) dragY else 0f) + shift(block).value
+                        if (dragging == block) { scaleX = 1.02f; scaleY = 1.02f }
                     }
                     .wiggle(editing && dragging != block, i),
             ) {
@@ -204,9 +234,10 @@ fun HomeScreen(
                     }
                     HomeBlock.Status -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Tile(Modifier.weight(1f).height(112.dp).tileTap("Battery settings", enabled = !editing) { onTile(Shortcut.Battery) }) {
+                            val level = Dot.battery(state.battery?.percent, state.battery?.charging == true)
                             Caption(if (state.battery?.charging == true) "Charging" else "Battery")
-                            BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(38))
-                            DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = Dot.ink)
+                            BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(38, level), modifier = Modifier.testTag("batteryLevel"))
+                            DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = level)
                         }
                         Tile(Modifier.weight(1f).height(112.dp).tileTap("Open alarms", enabled = !editing) { onTile(Shortcut.Alarms) }) {
                             Caption("Alarm")
@@ -243,28 +274,36 @@ fun HomeScreen(
                         onStart = { dragging = block; dragY = 0f },
                         onDrag = { dragBlock(block, it) },
                         onEnd = {
+                            // Settle into the nearest place: from where the finger let go, spring into the slot.
+                            val left = dragY
                             dragging = null
                             dragY = 0f
+                            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                shift(block).snapTo(left)
+                                shift(block).animateTo(0f, glide)
+                            }
                             if (order != blockOrder) onReorder(order)
                         },
                         modifier = Modifier.align(Alignment.TopCenter).offset(y = (-11).dp),
                     )
                 }
             }
+            }
         }
 
         Spacer(Modifier.weight(1f))
 
         // Search pill
+        val searchTone = rememberTileTone()
         Box(
             Modifier
                 .fillMaxWidth()
-                .tile(RoundedCornerShape(50))
+                .tile(RoundedCornerShape(50), searchTone)
                 .clickable(enabled = !editing) { onOpenApps(true) }
                 .testTag("searchPill")
                 .padding(horizontal = 18.dp, vertical = 14.dp),
         ) {
-            BasicText("Search apps", style = Dot.label.copy(color = Dot.muted, fontSize = 15.sp))
+            ProvideTileTone(searchTone) { BasicText("Search apps", style = Dot.label.copy(color = Dot.muted, fontSize = 15.sp)) }
         }
 
         // Dock
@@ -336,16 +375,17 @@ private fun EditBar(onSettings: () -> Unit, onDone: () -> Unit) {
 
 @Composable
 private fun AppTile(app: AppEntry, modifier: Modifier) {
+    val tone = rememberTileTone()
     Row(
         modifier
-            .tile(TileShape)
+            .tile(TileShape, tone)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-    ) {
+    ) { ProvideTileTone(tone) {
         AppIcon(app, 38.dp)
         Gap(10.dp)
         BasicText(app.label, style = Dot.label.copy(fontSize = 14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
+    } }
 }
 
 @Composable
