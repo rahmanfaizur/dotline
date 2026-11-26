@@ -450,6 +450,7 @@ private fun Launcher(
                 hasPhoto = app.wallpapers.hasPhoto,
                 photoVersion = photoVersion,
                 thumbnail = { k, w, h -> app.wallpapers.thumbnail(k, accentArgb, w, h) },
+                lockThumbnail = { k, w, h -> app.wallpapers.thumbnail(k, accentArgb, w, h, lock = true) },
                 lockNote = lockNote,
                 features = features,
                 notificationAccess = notificationAccess,

@@ -226,6 +226,31 @@ class LauncherUiTest {
         rule.onNodeWithTag("changeHome").performScrollTo().assertIsDisplayed() // always a way to switch launcher
     }
 
+    @Test fun lockPageShowsLockAndNightClockPreviews() {
+        openSettings()
+        rule.onNodeWithTag("page:Lock").performClick()
+        rule.onNodeWithTag("lockPreview").assertIsDisplayed()
+        rule.onNodeWithTag("nightClockPreview").assertIsDisplayed()
+    }
+
+    @Test fun nowPlayingSettingsPreviewEveryPlayerStyle() {
+        runBlocking { app.settings.setNowPlaying(true) }
+        try {
+            openSettings()
+            rule.onNodeWithTag("page:Notifications").performClick()
+            for (name in listOf("Cover glow", "Dot wave", "Vinyl")) {
+                rule.onNodeWithTag("player:$name").performScrollTo().performClick()
+                rule.onNodeWithTag("playerPreview").performScrollTo().assertIsDisplayed()
+                rule.onAllNodes(hasText("Sample song", ignoreCase = true), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty().let(::assertTrue)
+            }
+        } finally {
+            runBlocking {
+                app.settings.setNowPlaying(false)
+                app.settings.setPlayerStyle(dev.rahmanfaizur.dotline.data.PlayerStyle.Glow)
+            }
+        }
+    }
+
     @Test fun panelTileSwitchRemovesItFromAndroid() {
         fun ramTileOffered() = app.packageManager.queryIntentServices(
             android.content.Intent("android.service.quicksettings.action.QS_TILE").setPackage(app.packageName), 0,

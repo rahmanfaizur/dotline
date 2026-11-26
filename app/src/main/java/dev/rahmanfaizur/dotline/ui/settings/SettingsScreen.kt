@@ -1,6 +1,11 @@
 package dev.rahmanfaizur.dotline.ui.settings
 
 import androidx.compose.foundation.background
+import dev.rahmanfaizur.dotline.ui.home.PlayerActions
+import dev.rahmanfaizur.dotline.ui.home.NowPlayingTile
+import dev.rahmanfaizur.dotline.notify.NowPlaying
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -126,6 +131,7 @@ fun SettingsScreen(
     features: Map<Feature, Boolean> = emptyMap(),
     notificationAccess: Boolean = false,
     dotAppEntries: List<AppEntry> = emptyList(),
+    lockThumbnail: suspend (WallpaperKind, Int, Int) -> Bitmap? = { _, _, _ -> null },
 ) {
     val accent = LocalAccent.current
     var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
@@ -229,6 +235,20 @@ fun SettingsScreen(
                 }
 
                 SettingsPage.Lock -> {
+                    Section("Preview") {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally)) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                LockPreview(settings.wallpaper, Triple(settings.accent, photoVersion, hasPhoto), lockThumbnail)
+                                Gap(6.dp)
+                                Caption("Lock screen")
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                NightClockPreview()
+                                Gap(6.dp)
+                                Caption("Night clock")
+                            }
+                        }
+                    }
                     Section("Lock screen wallpaper") {
                         SettingRow("Use the Look wallpaper on the lock screen") {
                             Chip("Set", selected = true, accent = accent, tag = "useOnLock", onClick = actions.useOnLockScreen)
@@ -297,6 +317,7 @@ fun SettingsScreen(
                             actions.setNowPlaying(!settings.nowPlaying)
                         }
                         if (settings.nowPlaying) {
+                            PlayerPreview(settings, backdrop, accent)
                             Caption("Style")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf(PlayerStyle.Glow to "Cover glow", PlayerStyle.DotWave to "Dot wave", PlayerStyle.Vinyl to "Vinyl").forEach { (st, name) ->
@@ -744,3 +765,97 @@ private fun Switch(on: Boolean, accent: Color) {
         Box(Modifier.size(20.dp).background(Dot.Ink, CircleShape))
     }
 }
+
+/** The lock screen as it will look: the lock version of the wallpaper under the phone's own clock. */
+@Composable
+private fun LockPreview(kind: WallpaperKind, key: Any, lockThumbnail: suspend (WallpaperKind, Int, Int) -> Bitmap?) {
+    val image by produceState<ImageBitmap?>(null, kind, key) {
+        value = lockThumbnail(kind, 270, 600)?.asImageBitmap()
+    }
+    val outer = RoundedCornerShape(18.dp)
+    Box(
+        Modifier
+            .width(112.dp)
+            .aspectRatio(9f / 20f)
+            .clip(outer)
+            .border(2.dp, Dot.SurfaceHigh, outer)
+            .background(Dot.Black)
+            .testTag("lockPreview"),
+    ) {
+        image?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+        Column(Modifier.fillMaxWidth().padding(top = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // The phone draws its own clock here; a plain one stands in for it.
+            BasicText("17:48", style = Dot.label.copy(color = Color.White, fontSize = 22.sp))
+            BasicText("Thu 26 Nov", style = Dot.label.copy(color = Color(0xCCFFFFFF), fontSize = 8.sp))
+        }
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp).size(width = 30.dp, height = 3.dp).background(Color(0x99FFFFFF), RoundedCornerShape(50)))
+    }
+}
+
+/** The Night clock: a dim dot clock on black. */
+@Composable
+private fun NightClockPreview() {
+    val outer = RoundedCornerShape(18.dp)
+    Box(
+        Modifier
+            .width(112.dp)
+            .aspectRatio(9f / 20f)
+            .clip(outer)
+            .border(2.dp, Dot.SurfaceHigh, outer)
+            .background(Color.Black)
+            .testTag("nightClockPreview"),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            BasicText("17", style = Dot.dots(34, Color(0x8CFFFFFF)))
+            BasicText("48", style = Dot.dots(34, Color(0x8CFFFFFF)))
+        }
+    }
+}
+
+/** The chosen player style with a sample song, drawn by the real player over your wallpaper and tiles. */
+@Composable
+private fun PlayerPreview(settings: LauncherSettings, backdrop: Backdrop?, accent: Color) {
+    val cover = remember(accent) { sampleCover(accent.toArgb()) }
+    val sample = remember(cover) {
+        NowPlaying(
+            packageName = "com.spotify.music",
+            title = "Sample song",
+            artist = "Dotline",
+            art = cover,
+            playing = true,
+            controller = null,
+            durationMs = 214_000,
+            positionMs = 78_000,
+            positionAtMs = 0,
+        )
+    }
+    val actions = remember { PlayerActions("Spotify", "Phone speaker", openPlayer = {}, openOutput = {}) }
+    CompositionLocalProvider(LocalDarkText provides useDarkText(settings.textTone, settings.tileStyle, backdrop)) {
+        WallpaperArea(
+            backdrop = backdrop,
+            style = settings.tileStyle,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).testTag("playerPreview"),
+        ) {
+            Box(Modifier.padding(12.dp)) { NowPlayingTile(sample, settings.playerStyle, actions) }
+        }
+    }
+}
+
+/** A made-up album cover in the accent colour, so the preview never needs a real song. */
+private fun sampleCover(accent: Int): Bitmap {
+    val size = 160
+    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    paint.shader = android.graphics.LinearGradient(0f, 0f, size.toFloat(), size.toFloat(), accent, 0xFF101010.toInt(), android.graphics.Shader.TileMode.CLAMP)
+    c.drawRect(0f, 0f, size.toFloat(), size.toFloat(), paint)
+    paint.shader = null
+    paint.color = 0x55FFFFFF
+    for (y in 0 until 8) for (x in 0 until 8) {
+        val r = 1.5f + (x + y) * 0.35f
+        c.drawCircle(14f + x * 19f, 14f + y * 19f, r, paint)
+    }
+    return bmp
+}
+
