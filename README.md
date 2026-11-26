@@ -31,7 +31,7 @@ Each release lists the APK's SHA-256 so you can check the file is the real one. 
 
 **Quick page.** Swipe right for a dot calendar, free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Files, memory details).
 
-**Look.** Pick a wallpaper (your own photo, or one of five drawn by Dotline: Dot field, Halftone, Sunset, Glow, Horizon), a tile style (smoke glass, clear glass, tinted, outline, floating, solid), the text colour on tiles (auto, white or black), the app list background, seven accent colours and round or rounded-square icons. Live previews show home and the app list as you change things.
+**Look.** Pick a wallpaper (your own photo, or one of five drawn by Dotline: Dot field, Halftone, Sunset, Glow, Horizon), a tile style (smoke glass, clear glass, tinted, outline, floating, solid), the text colour on tiles (auto, white or black), a font for all text (default, italic, italic serif, bold italic serif or bold serif; the dot clock stays dotted), the app list background, seven accent colours and round or rounded-square icons. Live previews show home and the app list as you change things.
 
 **Now playing** (optional). Spotify, or any music app, on your home in one of three styles, with play/pause, skip, a progress bar you can drag and a speaker chip that opens Android's own speaker picker.
 
@@ -128,4 +128,4 @@ Copyright (C) 2026 rahmanfaizur. Released under the [GNU General Public License 
 
 ## Credits
 
-Dot-matrix font: [Doto](https://github.com/oliverlalan/Doto), SIL Open Font License 1.1 (see `licenses/OFL-Doto.txt`). Screenshots are from the Android emulator.
+Dot-matrix font: [Doto](https://github.com/oliverlalan/Doto). Font choices: [Tinos](https://github.com/googlefonts/tinos) and [Arimo](https://github.com/googlefonts/arimo). All three are under the SIL Open Font License 1.1 (see `licenses/`). Screenshots are from the Android emulator.

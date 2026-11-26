@@ -82,6 +82,8 @@ import dev.rahmanfaizur.dotline.ui.AppIcon
 import dev.rahmanfaizur.dotline.ui.home.AppActions
 import dev.rahmanfaizur.dotline.ui.home.appClicks
 import dev.rahmanfaizur.dotline.ui.theme.Dot
+import dev.rahmanfaizur.dotline.ui.theme.LocalTextFont
+import dev.rahmanfaizur.dotline.ui.theme.inFont
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
@@ -323,7 +325,7 @@ private fun SearchField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
-        textStyle = TextStyle(color = Dot.Ink, fontSize = 15.sp),
+        textStyle = TextStyle(color = Dot.Ink, fontSize = 15.sp).inFont(LocalTextFont.current),
         cursorBrush = SolidColor(LocalAccent.current),
         keyboardOptions = KeyboardOptions(
             imeAction = ImeAction.Go,
@@ -347,13 +349,13 @@ private fun SearchField(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) BasicText("Search apps", style = TextStyle(color = Dot.Muted, fontSize = 15.sp))
+                    if (query.isEmpty()) BasicText("Search apps", style = TextStyle(color = Dot.Muted, fontSize = 15.sp).inFont(LocalTextFont.current))
                     inner()
                 }
                 if (query.isNotEmpty()) {
                     BasicText(
                         "✕",
-                        style = TextStyle(color = Dot.Muted, fontSize = 15.sp),
+                        style = TextStyle(color = Dot.Muted, fontSize = 15.sp).inFont(LocalTextFont.current),
                         modifier = Modifier.clickable { onQueryChange("") }.padding(start = 12.dp),
                     )
                 }

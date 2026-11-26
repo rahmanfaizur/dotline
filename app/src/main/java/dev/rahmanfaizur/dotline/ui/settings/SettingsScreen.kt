@@ -42,6 +42,7 @@ import dev.rahmanfaizur.dotline.ui.common.Caption
 import dev.rahmanfaizur.dotline.ui.common.Gap
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
+import dev.rahmanfaizur.dotline.ui.theme.LocalTextFont
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -63,6 +64,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import dev.rahmanfaizur.dotline.data.TextFont
 import dev.rahmanfaizur.dotline.data.TextTone
 import dev.rahmanfaizur.dotline.data.TileStyle
 import dev.rahmanfaizur.dotline.ui.common.useDarkText
@@ -94,6 +96,7 @@ class SettingsActions(
     val setTileStyle: (TileStyle) -> Unit,
     val setDrawerBackground: (DrawerBackground) -> Unit,
     val setTextTone: (TextTone) -> Unit,
+    val setTextFont: (TextFont) -> Unit,
     /** Puts the lock-screen version of the chosen wallpaper on the lock screen. */
     val useOnLockScreen: () -> Unit,
     val openNightClock: () -> Unit,
@@ -458,7 +461,7 @@ fun SettingsScreen(
                         BasicText("Settings and your picked photo stay inside the app's private storage.", style = Dot.label.copy(color = Dot.Muted))
                         BasicText(dev.rahmanfaizur.dotline.ui.guide.CREDIT, style = Dot.label.copy(fontSize = 13.sp))
                         BasicText(dev.rahmanfaizur.dotline.ui.guide.SOURCE, style = Dot.label.copy(color = Dot.Muted))
-                        BasicText("Font: Doto (SIL Open Font License).", style = Dot.label.copy(color = Dot.Muted))
+                        BasicText("Fonts: Doto, Tinos and Arimo (SIL Open Font License).", style = Dot.label.copy(color = Dot.Muted))
                     }
                 }
             }
@@ -565,6 +568,11 @@ private val WallpaperNames = mapOf(
     WallpaperKind.Horizon to "Horizon",
 )
 
+private val FontNames = listOf(
+    TextFont.Default to "Default", TextFont.Italic to "Italic", TextFont.ItalicSerif to "Italic serif",
+    TextFont.BoldItalicSerif to "Bold italic serif", TextFont.BoldSerif to "Bold serif",
+)
+
 private val TileNames = listOf(
     TileStyle.Smoke to "Smoke glass",
     TileStyle.Glass to "Clear glass",
@@ -652,6 +660,16 @@ private fun LookSection(
         }
         if (settings.textTone == TextTone.Black && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Tinted, TileStyle.Solid)) {
             BasicText("Black text is hard to read on dark tiles. Try Clear glass, Outline or Floating.", style = Dot.label.copy(color = Dot.Muted))
+        }
+
+        Caption("Font")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FontNames.forEach { (font, name) ->
+                // Each chip is written in its own font.
+                CompositionLocalProvider(LocalTextFont provides font) {
+                    Chip(name, settings.textFont == font, accent, tag = "font:${font.name}") { actions.setTextFont(font) }
+                }
+            }
         }
 
         Caption("App list")

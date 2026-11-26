@@ -16,11 +16,13 @@ import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.rahmanfaizur.dotline.R
 import dev.rahmanfaizur.dotline.data.IconShape
+import dev.rahmanfaizur.dotline.data.TextFont
 
 /** Dotline's whole visual language: black, white, one accent colour (red by default). */
 object Dot {
@@ -108,14 +110,44 @@ object Dot {
         }
 
     val label: TextStyle @Composable @ReadOnlyComposable
-        get() = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = shadow)
+        get() = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = shadow).inFont(LocalTextFont.current)
     val caption: TextStyle @Composable @ReadOnlyComposable
-        get() = TextStyle(color = muted, fontFamily = Mono, fontSize = 11.sp, letterSpacing = 1.sp, shadow = shadow)
+        get() = TextStyle(color = muted, fontFamily = Mono, fontSize = 11.sp, letterSpacing = 1.sp, shadow = shadow).inFont(LocalTextFont.current)
 
     @Composable @ReadOnlyComposable
     fun dots(size: Int, color: Color = ink) =
         TextStyle(color = color, fontFamily = DotFont, fontWeight = FontWeight.Black, fontSize = size.sp, shadow = shadow)
 }
+
+/** Arimo italic (an Arial look-alike). It's a variable font, so one entry per weight Dotline uses. */
+@OptIn(ExperimentalTextApi::class)
+private val SansItalic = FontFamily(
+    listOf(400, 500, 600, 700).map { w ->
+        Font(R.font.arimo_italic, FontWeight(w), FontStyle.Italic, variationSettings = FontVariation.Settings(FontVariation.weight(w)))
+    },
+)
+
+/** Tinos (a Times look-alike), only in the cuts the font choices use. */
+private val Serif = FontFamily(
+    Font(R.font.tinos_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.tinos_bold_italic, FontWeight.Bold, FontStyle.Italic),
+    Font(R.font.tinos_bold, FontWeight.Bold, FontStyle.Normal),
+)
+
+/**
+ * This style in a Settings → Look → Font choice. Default leaves it as it is; the bold ones make all
+ * text bold. Letters these fonts don't have (other scripts) fall back to the phone's own fonts.
+ */
+fun TextStyle.inFont(font: TextFont): TextStyle = when (font) {
+    TextFont.Default -> this
+    TextFont.Italic -> copy(fontFamily = SansItalic, fontStyle = FontStyle.Italic)
+    TextFont.ItalicSerif -> copy(fontFamily = Serif, fontStyle = FontStyle.Italic)
+    TextFont.BoldItalicSerif -> copy(fontFamily = Serif, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Bold)
+    TextFont.BoldSerif -> copy(fontFamily = Serif, fontStyle = FontStyle.Normal, fontWeight = FontWeight.Bold)
+}
+
+/** Font chosen in Settings → Look → Font. */
+val LocalTextFont = staticCompositionLocalOf { TextFont.Default }
 
 /** True on home tiles when they should use black text (see Settings → Look → Text). */
 val LocalDarkText = staticCompositionLocalOf { false }

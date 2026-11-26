@@ -27,6 +27,9 @@ enum class DrawerBackground { Frosted, Dimmed, Sheet, Black }
 /** Text colour on home tiles. Auto picks black only on see-through tiles over a bright wallpaper. */
 enum class TextTone { Auto, White, Black }
 
+/** Font for all of Dotline's text (the dot clock and dot letters stay dotted). Default is the look it always had. */
+enum class TextFont { Default, Italic, ItalicSerif, BoldItalicSerif, BoldSerif }
+
 enum class TileStyle { Smoke, Glass, Tinted, Outline, Floating, Solid }
 
 /**
@@ -46,6 +49,7 @@ data class LauncherSettings(
     val tileStyle: TileStyle = TileStyle.Smoke,
     val drawerBackground: DrawerBackground = DrawerBackground.Frosted,
     val textTone: TextTone = TextTone.Auto,
+    val textFont: TextFont = TextFont.Default,
     /** Off until the user turns them on (they need notification access). */
     val notificationDots: Boolean = false,
     val nowPlaying: Boolean = false,
@@ -145,6 +149,7 @@ class SettingsStore(context: Context) {
     suspend fun setHomeOrder(order: List<HomeBlock>) = store.edit { it[HOME_ORDER] = order.joinToString(",") { b -> b.name } }
     suspend fun setDotApps(apps: Set<String>) = store.edit { it[DOT_APPS] = apps }
     suspend fun setTextTone(tone: TextTone) = store.edit { it[TEXT_TONE] = tone.name }
+    suspend fun setTextFont(font: TextFont) = store.edit { it[TEXT_FONT] = font.name }
     suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
     suspend fun setHomePromptDismissed(dismissed: Boolean) = store.edit { it[HOME_PROMPT_DISMISSED] = dismissed }
 
@@ -185,6 +190,7 @@ class SettingsStore(context: Context) {
         clockStyle = this[CLOCK_STYLE]?.let { runCatching { ClockStyle.valueOf(it) }.getOrNull() } ?: ClockStyle.Big,
         iconStyle = this[ICON_STYLE]?.let { runCatching { IconStyle.valueOf(it) }.getOrNull() } ?: IconStyle.Original,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
+        textFont = this[TEXT_FONT]?.let { runCatching { TextFont.valueOf(it) }.getOrNull() } ?: TextFont.Default,
     )
 
     /**
@@ -233,6 +239,7 @@ class SettingsStore(context: Context) {
         val TILE_STYLE = stringPreferencesKey("tile_style")
         val DRAWER_BG = stringPreferencesKey("drawer_bg")
         val TEXT_TONE = stringPreferencesKey("text_tone")
+        val TEXT_FONT = stringPreferencesKey("text_font")
         val NOTIF_DOTS = booleanPreferencesKey("notification_dots")
         val NOW_PLAYING = booleanPreferencesKey("now_playing")
         val DOT_APPS = stringSetPreferencesKey("dot_apps")
@@ -256,7 +263,7 @@ class SettingsStore(context: Context) {
         val BOOL_KEYS = listOf(QUICK_PAGE, NOTIF_DOTS, NOW_PLAYING, SPOTIFY_ONLY, PLAYER_CARD, PHONE_WALLPAPER, SWIPE_DOWN, SMART_SEARCH, COMPACT, FOLDERS_ON)
         val INT_KEYS = listOf(ACCENT, HOME_APPS)
         val STRING_KEYS = listOf(
-            FAVORITES, DOCK, QUICK, ICON_SHAPE, CLOCK, WALLPAPER, TILE_STYLE, DRAWER_BG, TEXT_TONE,
+            FAVORITES, DOCK, QUICK, ICON_SHAPE, CLOCK, WALLPAPER, TILE_STYLE, DRAWER_BG, TEXT_TONE, TEXT_FONT,
             PLAYER_STYLE, HOME_ORDER, ICON_STYLE, CLOCK_STYLE, FOLDERS,
         )
         val SET_KEYS = listOf(HIDDEN, DOT_APPS)

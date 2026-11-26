@@ -87,6 +87,7 @@ import dev.rahmanfaizur.dotline.ui.settings.SettingsLists
 import dev.rahmanfaizur.dotline.ui.settings.SettingsScreen
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
+import dev.rahmanfaizur.dotline.ui.theme.LocalTextFont
 import dev.rahmanfaizur.dotline.ui.theme.LocalIconShape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -183,6 +184,7 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalIconLoader provides app.icons,
                 LocalAccent provides Dot.accent(settings.accent),
+                LocalTextFont provides settings.textFont,
                 LocalIconShape provides Dot.iconShape(settings.iconShape),
                 LocalIconTint provides when (settings.iconStyle) {
                     IconStyle.Original -> 0
@@ -641,6 +643,7 @@ private fun Launcher(
                     setTileStyle = { st -> app.appScope.launch { store.setTileStyle(st) } },
                     setDrawerBackground = { bg -> app.appScope.launch { store.setDrawerBackground(bg) } },
                     setTextTone = { t -> app.appScope.launch { store.setTextTone(t) } },
+                    setTextFont = { f -> app.appScope.launch { store.setTextFont(f) } },
                     useOnLockScreen = {
                         lockNote = "Getting it ready…"
                         app.appScope.launch {
