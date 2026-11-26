@@ -27,6 +27,8 @@ No internet permission. No ads. No tracking. Everything stays on the phone.
 
 <p align="center"><img src="docs/screenshots/players.jpg" width="420" alt="Cover glow, Dot wave and Vinyl player styles"></p>
 
+<p align="center"><img src="docs/screenshots/panel-card.jpg" width="380" alt="The player card in the pull-down panel"></p>
+
 Switch on **Show this player there too** and the same player (Cover glow) also sits in the pull-down panel and on the lock screen. Turn off Spotify's own playback notifications if you only want Dotline's.
 
 **Notification dots** (optional). A small accent dot on the apps you choose while they have notifications.
@@ -42,6 +44,15 @@ Switch on **Show this player there too** and the same player (Cover glow) also s
 <img src="docs/screenshots/settings.jpg" width="200" alt="Settings pages">
 <img src="docs/screenshots/look.jpg" width="200" alt="Look settings">
 </p>
+
+## Design sketches
+
+Drawn while planning Dotline, before the code: the five built-in wallpapers on home and lock screen, the tile styles, the app list backgrounds and the three players. The app does all of these; the screenshots above are the real thing.
+
+<p align="center"><img src="docs/design/looks.jpg" width="760" alt="Five wallpapers, each on home and lock screen"></p>
+<p align="center"><img src="docs/design/tiles.jpg" width="760" alt="Tile styles: smoke glass, clear glass, tinted, outline, floating"></p>
+<p align="center"><img src="docs/design/drawers.jpg" width="620" alt="App list backgrounds: frosted, dimmed, glass sheet, black"></p>
+<p align="center"><img src="docs/design/player.jpg" width="760" alt="Player styles: cover glow, dot wave, vinyl"></p>
 
 ## Private by design
 
