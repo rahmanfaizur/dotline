@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.geometry.Offset
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,6 +83,7 @@ import dev.rahmanfaizur.dotline.domain.AppIndex
 import dev.rahmanfaizur.dotline.ui.AppIcon
 import dev.rahmanfaizur.dotline.ui.home.AppActions
 import dev.rahmanfaizur.dotline.ui.home.appClicks
+import dev.rahmanfaizur.dotline.data.WebSearch
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalTextFont
 import dev.rahmanfaizur.dotline.ui.theme.inFont
@@ -147,6 +150,8 @@ fun DrawerScreen(
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val pull = rememberPullToClose(onClose)
+    val context = LocalContext.current
+    val webSearch = { if (WebSearch.open(context, query)) onClose() }
 
     LaunchedEffect(focusSearch) {
         if (focusSearch) {
@@ -187,7 +192,12 @@ fun DrawerScreen(
             onQueryChange = onQueryChange,
             onGo = {
                 val top = results.firstOrNull()
-                if (top != null) actions.launch(top, null) else links.firstOrNull()?.let { onOpenSetting(it.action) }
+                val link = links.firstOrNull()
+                when {
+                    top != null -> actions.launch(top, null)
+                    link != null -> onOpenSetting(link.action)
+                    sum == null -> webSearch()
+                }
             },
             focusRequester = focusRequester,
             glassy = glassy,
@@ -200,6 +210,7 @@ fun DrawerScreen(
             SearchResults(
                 results, actions, Modifier.weight(1f).padding(horizontal = 16.dp).nestedScroll(pull.connection), glassy,
                 sum = sum, links = links, onOpenSetting = onOpenSetting,
+                query = query, onWebSearch = webSearch,
             )
         }
     }
@@ -580,12 +591,10 @@ private fun SearchResults(
     sum: Double? = null,
     links: List<SettingLink> = emptyList(),
     onOpenSetting: (String) -> Unit = {},
+    query: String = "",
+    onWebSearch: () -> Unit = {},
 ) {
     val accent = LocalAccent.current
-    if (results.isEmpty() && sum == null && links.isEmpty()) {
-        BasicText("No apps match", style = Dot.caption, modifier = modifier.padding(top = 8.dp))
-        return
-    }
     val clipboard = LocalClipboardManager.current
     var copied by remember(sum) { mutableStateOf(false) }
     LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -619,6 +628,36 @@ private fun SearchResults(
                 Column {
                     BasicText(link.label, style = Dot.label.copy(fontSize = 15.sp))
                     BasicText("Phone setting", style = Dot.caption.copy(fontSize = 10.sp))
+                }
+            }
+        }
+        // No app matched: offer the web instead (Go opens it too, unless a sum or a setting is showing).
+        if (results.isEmpty()) item(key = "web") {
+            val first = sum == null && links.isEmpty()
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (first) BasicText("No app found", style = Dot.caption, modifier = Modifier.padding(top = 2.dp, start = 4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (first) Modifier
+                                .background(if (glassy) GlassFill else Dot.Surface, RoundedCornerShape(18.dp))
+                                .border(1.dp, accent, RoundedCornerShape(18.dp))
+                            else Modifier,
+                        )
+                        .clickable(onClickLabel = "Search the web", onClick = onWebSearch)
+                        .testTag("webSearch")
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    Box(Modifier.size(if (first) 44.dp else 36.dp).background(Dot.SurfaceHigh, CircleShape), contentAlignment = Alignment.Center) {
+                        BasicText("↗", style = Dot.label.copy(color = accent, fontSize = 24.sp, fontWeight = FontWeight.Bold))
+                    }
+                    Spacer(Modifier.size(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        BasicText("Search the web for “${query.trim()}”", style = Dot.label.copy(fontSize = 15.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        BasicText(if (first) "Enter to search in your browser" else "Opens your browser", style = Dot.caption.copy(fontSize = 10.sp))
+                    }
                 }
             }
         }

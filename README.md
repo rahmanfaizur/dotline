@@ -27,7 +27,7 @@ Each release lists the APK's SHA-256 so you can check the file is the real one. 
 
 **All apps.** Swipe up. Real app icons, a big dot letter for the section you're in, and a slim scroll handle on the right edge: drag it and a drop-shaped bubble shows the letter as you fly through the list. Pull down (or press Home) to close.
 
-**Search.** Type a few letters and press Enter to open the top match. It understands prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents. It also answers sums (`12*8`) and finds phone settings ("wifi", "battery"), all offline.
+**Search.** Type a few letters and press Enter to open the top match. It understands prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents. It also answers sums (`12*8`) and finds phone settings ("wifi", "battery"), all offline. When no app matches, it offers a web search: press Enter and your default browser searches with its own engine (Dotline itself still never goes online).
 
 **Quick page.** Swipe right for a dot calendar, free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Files, memory details).
 
