@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -39,21 +40,34 @@ import dev.rahmanfaizur.dotline.data.AppEntry
 import dev.rahmanfaizur.dotline.data.HomeBlock
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 
-/** A place an app sits on home: one of the four home tiles, or a dock spot. */
+/** A place an app sits on home: one of the home tiles, or a dock spot. */
 data class AppSlot(val dock: Boolean, val index: Int)
+
+/** Something on a home tile: an app, or a folder of apps. */
+sealed class HomeItem {
+    abstract val key: String
+
+    data class App(val entry: AppEntry) : HomeItem() {
+        override val key: String get() = entry.component.flattenToString()
+    }
+
+    data class FolderItem(val folder: dev.rahmanfaizur.dotline.domain.Folder, val apps: List<AppEntry>) : HomeItem() {
+        override val key: String get() = folder.key
+    }
+}
 
 /** Edit mode: where things are and what's being dragged. Plain fields for bounds so layout never recomposes. */
 class HomeEditState {
     val bounds = HashMap<AppSlot, Rect>()
     var from by mutableStateOf<AppSlot?>(null)
         private set
-    var app by mutableStateOf<AppEntry?>(null)
+    var item by mutableStateOf<HomeItem?>(null)
         private set
     var offset by mutableStateOf(Offset.Zero)
     private var grab = Offset.Zero
 
-    fun start(slot: AppSlot, entry: AppEntry, touch: Offset) {
-        from = slot; app = entry; offset = Offset.Zero
+    fun start(slot: AppSlot, what: HomeItem, touch: Offset) {
+        from = slot; item = what; offset = Offset.Zero
         grab = (bounds[slot]?.topLeft ?: Offset.Zero) + touch
     }
 
@@ -63,10 +77,10 @@ class HomeEditState {
         return bounds.entries.firstOrNull { it.key != from && it.value.contains(p) }?.key
     }
 
-    fun clear() { from = null; app = null; offset = Offset.Zero }
+    fun clear() { from = null; item = null; offset = Offset.Zero }
 
-    /** Glides the dragged app into [to] (or back home), then swaps. Nothing ever stops halfway. */
-    suspend fun drop(onSwap: (AppSlot, AppSlot) -> Unit) {
+    /** Glides the dragged app into [to] (or back home), then hands over the drop. Nothing ever stops halfway. */
+    suspend fun drop(onDrop: (AppSlot, AppSlot) -> Unit) {
         val start = from ?: return
         val to = target()
         val origin = bounds[start]?.topLeft ?: Offset.Zero
@@ -76,7 +90,7 @@ class HomeEditState {
             offset = begin + (end - begin) * t
         }
         if (to != null) {
-            onSwap(start, to)
+            onDrop(start, to)
             kotlinx.coroutines.delay(160) // let the swapped apps appear before the floating copy goes
         }
         clear()
@@ -88,13 +102,20 @@ class HomeEditState {
  * your finger and swaps places with whatever app it's dropped on (home tile or dock).
  */
 fun Modifier.homeApp(
-    app: AppEntry,
+    item: HomeItem,
     slot: AppSlot,
     actions: AppActions,
     edit: HomeEditState?,
-    onSwap: (AppSlot, AppSlot) -> Unit,
+    onDrop: (AppSlot, AppSlot) -> Unit,
+    onOpenFolder: (String) -> Unit = {},
 ): Modifier = composed {
-    if (edit == null) return@composed appClicks(app, actions)
+    if (edit == null) {
+        return@composed when (item) {
+            is HomeItem.App -> appClicks(item.entry, actions)
+            is HomeItem.FolderItem -> clickable(onClickLabel = "Open folder") { onOpenFolder(item.folder.id) }
+                .testTag("folder:${item.folder.name}")
+        }
+    }
     val accent = LocalAccent.current
     val hovered = edit.from != null && edit.from != slot && edit.target() == slot
     val scope = rememberCoroutineScope()
@@ -104,16 +125,16 @@ fun Modifier.homeApp(
         .graphicsLayer { alpha = if (edit.from == slot) 0.3f else 1f }
         .then(if (hovered) Modifier.border(2.dp, accent, RoundedCornerShape(22.dp)) else Modifier)
         .testTag(if (slot.dock) "slot:dock:${slot.index}" else "slot:home:${slot.index}")
-        .pointerInput(slot, app) {
+        .pointerInput(slot, item) {
             detectDragGestures(
                 onDragStart = {
-                    edit.start(slot, app, it)
+                    edit.start(slot, item, it)
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 },
                 onDrag = { change, d -> change.consume(); edit.offset += d },
                 onDragEnd = {
                     if (edit.target() != null) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    scope.launch { edit.drop(onSwap) }
+                    scope.launch { edit.drop(onDrop) }
                 },
                 onDragCancel = { edit.clear() },
             )

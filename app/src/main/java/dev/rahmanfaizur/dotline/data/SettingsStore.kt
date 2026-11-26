@@ -69,6 +69,9 @@ data class LauncherSettings(
     val homeApps: Int = 4,
     /** Smaller tiles; home apps as icons only. */
     val compact: Boolean = false,
+    /** Making folders by dropping an app on another in edit mode. */
+    val foldersOn: Boolean = false,
+    val folders: Map<String, dev.rahmanfaizur.dotline.domain.Folder> = emptyMap(),
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -106,7 +109,7 @@ class SettingsStore(context: Context) {
 
     suspend fun setFavorites(list: List<String>) = store.edit { it[FAVORITES] = list.join() }
     /** Back to the default home apps. */
-    suspend fun resetFavorites() = store.edit { it.remove(FAVORITES) }
+    suspend fun resetFavorites() = store.edit { it.remove(FAVORITES); it.remove(FOLDERS) }
     suspend fun setDock(list: List<String>) = store.edit { it[DOCK] = list.join() }
     suspend fun setQuick(list: List<String>) = store.edit { it[QUICK] = list.join() }
     suspend fun setHidden(set: Set<String>) = store.edit { it[HIDDEN] = set }
@@ -121,6 +124,12 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setFoldersOn(on: Boolean) = store.edit { it[FOLDERS_ON] = on }
+    /** Home apps and folders change together (one save, so they never disagree). */
+    suspend fun setHomeLayout(favorites: List<String>, folders: Collection<dev.rahmanfaizur.dotline.domain.Folder>) = store.edit {
+        it[FAVORITES] = favorites.join()
+        it[FOLDERS] = dev.rahmanfaizur.dotline.domain.Folder.encode(folders)
+    }
     suspend fun setHomeApps(count: Int) = store.edit { it[HOME_APPS] = count }
     suspend fun setCompact(on: Boolean) = store.edit { it[COMPACT] = on }
     suspend fun setClockStyle(style: ClockStyle) = store.edit { it[CLOCK_STYLE] = style.name }
@@ -159,6 +168,8 @@ class SettingsStore(context: Context) {
         smartSearch = this[SMART_SEARCH] ?: true,
         homeApps = (this[HOME_APPS] ?: 4).takeIf { it in listOf(4, 6, 8) } ?: 4,
         compact = this[COMPACT] ?: false,
+        foldersOn = this[FOLDERS_ON] ?: false,
+        folders = dev.rahmanfaizur.dotline.domain.Folder.decode(this[FOLDERS]),
         clockStyle = this[CLOCK_STYLE]?.let { runCatching { ClockStyle.valueOf(it) }.getOrNull() } ?: ClockStyle.Big,
         iconStyle = this[ICON_STYLE]?.let { runCatching { IconStyle.valueOf(it) }.getOrNull() } ?: IconStyle.Original,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
@@ -194,6 +205,8 @@ class SettingsStore(context: Context) {
         val CLOCK_STYLE = stringPreferencesKey("clock_style")
         val HOME_APPS = intPreferencesKey("home_apps")
         val COMPACT = booleanPreferencesKey("compact")
+        val FOLDERS_ON = booleanPreferencesKey("folders_on")
+        val FOLDERS = stringPreferencesKey("folders")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

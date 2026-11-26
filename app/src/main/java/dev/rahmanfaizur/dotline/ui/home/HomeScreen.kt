@@ -76,6 +76,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.graphics.Color
 import java.util.Date
 import java.util.Locale
 
@@ -88,6 +90,18 @@ class HomeState(
     val clock: ClockMode,
     /** False for the moment before the app list arrives, so "Your apps go here" doesn't flash. */
     val appsLoaded: Boolean = true,
+    /** Home tiles in order, folders included; defaults to [favorites] as plain apps. */
+    val items: List<HomeItem> = favorites.map { HomeItem.App(it) },
+)
+
+/** What folders on home can do (all saved by the launcher). */
+class FolderActions(
+    /** Making folders by dropping one app on another (Settings → Home screen → Folders). */
+    val enabled: Boolean = false,
+    val make: (dropped: String, target: String) -> Unit = { _, _ -> },
+    val add: (app: String, folderId: String) -> Unit = { _, _ -> },
+    val remove: (folderId: String, app: String) -> Unit = { _, _ -> },
+    val rename: (folderId: String, name: String) -> Unit = { _, _ -> },
 )
 
 /** Shared click handlers for any app shown on screen. */
@@ -126,6 +140,7 @@ fun HomeScreen(
     clockStyle: ClockStyle = ClockStyle.Big,
     homeApps: Int = 4,
     compact: Boolean = false,
+    folders: FolderActions = FolderActions(),
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -141,6 +156,23 @@ fun HomeScreen(
     }
 
     val edit = remember { HomeEditState() }.takeIf { editing }
+    val shownItems = state.items.take(homeApps)
+    fun itemAt(s: AppSlot): HomeItem? = if (s.dock) state.dock.getOrNull(s.index)?.let { HomeItem.App(it) } else shownItems.getOrNull(s.index)
+    // A drop of one home app on another, waiting for "Make folder" or "Swap".
+    var pendingDrop by remember { mutableStateOf<Pair<AppSlot, AppSlot>?>(null) }
+    var openFolder by remember { mutableStateOf<String?>(null) }
+    val onDrop: (AppSlot, AppSlot) -> Unit = { a, b ->
+        val ia = itemAt(a)
+        val ib = itemAt(b)
+        when {
+            ia == null || ib == null -> Unit
+            // Folders stay on home; they never go into the dock.
+            (ia is HomeItem.FolderItem && b.dock) || (ib is HomeItem.FolderItem && a.dock) -> Unit
+            ia is HomeItem.App && ib is HomeItem.FolderItem && !a.dock -> folders.add(ia.key, ib.folder.id)
+            folders.enabled && !a.dock && !b.dock && ia is HomeItem.App && ib is HomeItem.App -> pendingDrop = a to b
+            else -> onSwapApps(a, b)
+        }
+    }
     var origin by remember { mutableStateOf(Offset.Zero) }
     val spacingPx = with(LocalDensity.current) { 10.dp.toPx() }
 
@@ -209,7 +241,19 @@ fun HomeScreen(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (editing) {
+        val pending = pendingDrop
+        if (editing && pending != null) {
+            DropChoice(
+                onFolder = {
+                    val d = itemAt(pending.first)
+                    val t = itemAt(pending.second)
+                    if (d != null && t != null) folders.make(d.key, t.key)
+                    pendingDrop = null
+                },
+                onSwap = { onSwapApps(pending.first, pending.second); pendingDrop = null },
+                onCancel = { pendingDrop = null },
+            )
+        } else if (editing) {
             EditBar(onSettings = { onEditChange(false); onOpenSettings() }, onDone = { onEditChange(false) })
         } else {
             // Hidden locally at once on "Not now"; the saved setting keeps it hidden next time.
@@ -288,16 +332,16 @@ fun HomeScreen(
                     HomeBlock.Apps -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         // Your apps: two named tiles per row, or four icon-only tiles in compact mode.
                         val perRow = if (compact) 4 else 2
-                        state.favorites.take(homeApps).withIndex().chunked(perRow).forEach { row ->
+                        shownItems.withIndex().chunked(perRow).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                row.forEach { (index, app) ->
-                                    val m = Modifier.weight(1f).homeApp(app, AppSlot(false, index), actions, edit, onSwapApps)
-                                    if (compact) IconTile(app, m) else AppTile(app, m)
+                                row.forEach { (index, item) ->
+                                    val m = Modifier.weight(1f).homeApp(item, AppSlot(false, index), actions, edit, onDrop, onOpenFolder = { openFolder = it })
+                                    ItemTile(item, compact, m)
                                 }
                                 repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
-                        if (state.favorites.isEmpty() && state.appsLoaded) {
+                        if (shownItems.isEmpty() && state.appsLoaded) {
                             Tile(Modifier.fillMaxWidth()) {
                                 Caption("Your apps go here")
                                 Gap(4.dp)
@@ -355,7 +399,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceAround,
             ) {
                 state.dock.take(4).forEachIndexed { index, app ->
-                    Box(Modifier.homeApp(app, AppSlot(true, index), actions, edit, onSwapApps).padding(4.dp)) {
+                    Box(Modifier.homeApp(HomeItem.App(app), AppSlot(true, index), actions, edit, onDrop).padding(4.dp)) {
                         AppIcon(app, 48.dp)
                     }
                 }
@@ -365,7 +409,7 @@ fun HomeScreen(
 
     // The app being dragged, drawn above everything and following the finger.
     val from = edit?.from
-    val dragged = edit?.app
+    val dragged = edit?.item
     val rect = from?.let { edit.bounds[it] }
     if (dragged != null && rect != null) {
         val density = LocalDensity.current
@@ -376,14 +420,151 @@ fun HomeScreen(
                     .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
                     .graphicsLayer { scaleX = 1.08f; scaleY = 1.08f; shadowElevation = 16f; shape = TileShape; clip = false },
             ) {
-                if (from.dock) {
-                    Box(Modifier.padding(4.dp)) { AppIcon(dragged, 48.dp) }
+                if (from.dock && dragged is HomeItem.App) {
+                    Box(Modifier.padding(4.dp)) { AppIcon(dragged.entry, 48.dp) }
                 } else {
-                    AppTile(dragged, Modifier.fillMaxSize().background(Dot.SurfaceHigh, TileShape))
+                    ItemTile(dragged, compact, Modifier.fillMaxSize().background(Dot.SurfaceHigh, TileShape))
                 }
             }
         }
     }
+
+    // An open folder: its apps over a dimmed home. Tap outside or press Back to close.
+    val folderOpen = openFolder?.let { id -> state.items.firstOrNull { it is HomeItem.FolderItem && it.folder.id == id } as? HomeItem.FolderItem }
+    if (openFolder != null && folderOpen == null) openFolder = null
+    if (folderOpen != null) {
+        androidx.activity.compose.BackHandler { openFolder = null }
+        FolderPanel(
+            item = folderOpen,
+            actions = actions,
+            onRename = { folders.rename(folderOpen.folder.id, it) },
+            onRemove = { folders.remove(folderOpen.folder.id, it) },
+            onClose = { openFolder = null },
+        )
+    }
+    }
+}
+
+/** A home tile for an app or a folder (icon-only in compact mode). */
+@Composable
+private fun ItemTile(item: HomeItem, compact: Boolean, modifier: Modifier) {
+    when (item) {
+        is HomeItem.App -> if (compact) IconTile(item.entry, modifier) else AppTile(item.entry, modifier)
+        is HomeItem.FolderItem -> if (compact) {
+            Box(modifier.aspectRatio(1f).tile(TileShape), contentAlignment = Alignment.Center) { MiniGrid(item.apps, 44.dp) }
+        } else {
+            val tone = rememberTileTone()
+            Row(
+                modifier.tile(TileShape, tone).padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ProvideTileTone(tone) {
+                    MiniGrid(item.apps, 38.dp)
+                    Gap(10.dp)
+                    BasicText(item.folder.name, style = Dot.label.copy(fontSize = 14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+/** Up to four app icons in a 2×2 square: how a folder looks on home. */
+@Composable
+private fun MiniGrid(apps: List<AppEntry>, size: androidx.compose.ui.unit.Dp) {
+    val cell = size / 2 - 1.dp
+    Column(Modifier.size(size), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        apps.take(4).chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { row.forEach { AppIcon(it, cell) } }
+        }
+    }
+}
+
+/** The bar that appears after dropping one home app on another (with folders on). */
+@Composable
+private fun DropChoice(onFolder: () -> Unit, onSwap: () -> Unit, onCancel: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().tile(TileShape).padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicText("Put them together?", style = Dot.label.copy(fontSize = 13.sp), modifier = Modifier.weight(1f))
+        BasicText("Cancel", style = Dot.label.copy(fontSize = 13.sp), modifier = Modifier.clickable(onClick = onCancel).testTag("dropCancel").padding(horizontal = 8.dp, vertical = 8.dp))
+        BasicText("Swap", style = Dot.label.copy(fontSize = 13.sp), modifier = Modifier.clickable(onClick = onSwap).testTag("dropSwap").padding(horizontal = 8.dp, vertical = 8.dp))
+        BasicText(
+            "Make folder",
+            style = Dot.label.copy(color = Dot.Black, fontSize = 13.sp),
+            modifier = Modifier
+                .background(LocalAccent.current, RoundedCornerShape(50))
+                .clickable(onClick = onFolder)
+                .testTag("dropFolder")
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** A folder opened: its name (tap to rename) and its apps. Long-press an app to take it out. */
+@Composable
+private fun FolderPanel(
+    item: HomeItem.FolderItem,
+    actions: AppActions,
+    onRename: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    var name by remember(item.folder.id) { mutableStateOf(item.folder.name) }
+    fun close() { if (name != item.folder.name) onRename(name); onClose() }
+    CompositionLocalProvider(LocalDarkText provides false) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xB3000000))
+                .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { close() }
+                .testTag("folderPanel"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth(0.88f)
+                    .background(Dot.Surface, RoundedCornerShape(28.dp))
+                    .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {}
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = name,
+                    onValueChange = { name = it.take(24) },
+                    singleLine = true,
+                    textStyle = Dot.dots(28),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(LocalAccent.current),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { onRename(name) }),
+                    modifier = Modifier.fillMaxWidth().testTag("folderName"),
+                )
+                item.apps.chunked(4).forEach { row ->
+                    Row(Modifier.fillMaxWidth()) {
+                        row.forEach { app ->
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .combinedClickable(
+                                        onClick = { onClose(); actions.launch(app, null) },
+                                        onLongClick = { onRemove(app.component.flattenToString()) },
+                                        onLongClickLabel = "Take out of folder",
+                                    )
+                                    .testTag("inFolder:${app.label}")
+                                    .padding(vertical = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                AppIcon(app, 52.dp)
+                                Gap(6.dp)
+                                BasicText(app.label, style = Dot.label.copy(fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+                Caption("Long-press an app to take it out")
+            }
+        }
     }
 }
 

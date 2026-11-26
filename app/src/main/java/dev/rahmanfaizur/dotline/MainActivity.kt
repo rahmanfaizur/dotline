@@ -4,6 +4,11 @@ import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Build
+import dev.rahmanfaizur.dotline.ui.home.FolderActions
+import dev.rahmanfaizur.dotline.ui.home.HomeItem
+import dev.rahmanfaizur.dotline.domain.HomeLayout
+import dev.rahmanfaizur.dotline.domain.Folders
+import dev.rahmanfaizur.dotline.domain.Folder
 import dev.rahmanfaizur.dotline.data.IconStyle
 import dev.rahmanfaizur.dotline.ui.LocalIconTint
 import dev.rahmanfaizur.dotline.data.StatusBar
@@ -251,6 +256,16 @@ private fun Launcher(
     val defaults = remember(apps) { app.apps.defaults(apps) }
     fun resolve(keys: List<String>) = keys.mapNotNull { byComponent[it] }
     val favoriteKeys = settings.favorites ?: defaults.favorites
+    // Home tiles in order: apps and folders (a folder whose apps are all gone is skipped).
+    val homeItems = remember(favoriteKeys, settings.folders, byComponent) {
+        favoriteKeys.mapNotNull { k ->
+            if (Folder.isFolder(k)) settings.folders[Folder.idOf(k)]?.let { f ->
+                resolve(f.apps).takeIf { it.isNotEmpty() }?.let { HomeItem.FolderItem(f, it) }
+            } else byComponent[k]?.let { HomeItem.App(it) }
+        }
+    }
+    fun saveLayout(l: HomeLayout) { app.appScope.launch { app.settings.setHomeLayout(l.favorites, l.folders.values) } }
+    val layoutNow = { HomeLayout(favoriteKeys, settings.folders) }
     val dockKeys = settings.dock ?: defaults.dock
     val quickKeys = settings.quick ?: defaults.quick
     val visibleApps = remember(apps, settings.hidden) { apps.filter { it.component.flattenToString() !in settings.hidden } }
@@ -390,6 +405,7 @@ private fun Launcher(
             if (page == homePage) {
                 HomeScreen(
                     state = HomeState(
+                        items = homeItems,
                         favorites = resolve(favoriteKeys),
                         dock = resolve(dockKeys),
                         battery = battery,
@@ -407,13 +423,20 @@ private fun Launcher(
                     onSwipeDown = if (settings.swipeDownNotifications) ({ StatusBar.expandNotifications(context) }) else null,
                     clockStyle = settings.clockStyle,
                     homeApps = settings.homeApps,
+                    folders = FolderActions(
+                        enabled = settings.foldersOn,
+                        make = { d, t -> saveLayout(Folders.make(layoutNow(), d, t, id = System.currentTimeMillis().toString(36))) },
+                        add = { a, f -> saveLayout(Folders.add(layoutNow(), a, f)) },
+                        remove = { f, a -> saveLayout(Folders.remove(layoutNow(), f, a)) },
+                        rename = { f, n -> saveLayout(Folders.rename(layoutNow(), f, n)) },
+                    ),
                     compact = settings.compact,
                     editing = editingHome,
                     onEditChange = { editingHome = it },
                     blockOrder = settings.homeOrder,
                     onReorder = { order -> app.appScope.launch { app.settings.setHomeOrder(order) } },
                     onSwapApps = { a, b ->
-                        val shownFav = resolve(favoriteKeys).take(settings.homeApps).map { it.component.flattenToString() }
+                        val shownFav = homeItems.take(settings.homeApps).map { it.key }
                         val shownDock = resolve(dockKeys).take(4).map { it.component.flattenToString() }
                         fun keyAt(s: AppSlot) = (if (s.dock) shownDock else shownFav).getOrNull(s.index)
                         val ka = keyAt(a)
@@ -630,6 +653,7 @@ private fun Launcher(
                     setClockStyle = { st -> app.appScope.launch { store.setClockStyle(st) } },
                     setHomeApps = { n -> app.appScope.launch { store.setHomeApps(n) } },
                     setCompact = { on -> app.appScope.launch { store.setCompact(on) } },
+                    setFoldersOn = { on -> app.appScope.launch { store.setFoldersOn(on) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()

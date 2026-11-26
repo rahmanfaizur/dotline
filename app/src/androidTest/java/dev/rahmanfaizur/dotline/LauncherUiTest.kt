@@ -7,6 +7,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
@@ -367,6 +370,47 @@ class LauncherUiTest {
             runBlocking {
                 app.settings.setHomeApps(4)
                 app.settings.setCompact(false)
+                app.settings.resetFavorites()
+            }
+        }
+    }
+
+    @Test fun dropAnAppOnAnotherToMakeAFolder() {
+        val hold = InstrumentationRegistry.getArguments().getString("holdMs")?.toLongOrNull() ?: 0L
+        val four = app.apps.apps.value.map { it.component.flattenToString() }.distinct().take(4)
+        try {
+            runBlocking {
+                app.settings.setFavorites(four)
+                app.settings.setFoldersOn(true)
+            }
+            rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+            rule.waitUntil(5_000) { rule.onAllNodesWithTag("slot:home:1").fetchSemanticsNodes().isNotEmpty() }
+            val target = rule.onNodeWithTag("slot:home:0").fetchSemanticsNode().boundsInRoot.center
+            val start = rule.onNodeWithTag("slot:home:1").fetchSemanticsNode().boundsInRoot.center
+            rule.onNodeWithTag("slot:home:1").performTouchInput {
+                down(center)
+                val step = (target - start) / 20f
+                repeat(20) { moveBy(step) }
+                up()
+            }
+            rule.waitUntil(5_000) { rule.onAllNodesWithTag("dropFolder").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("dropFolder").performClick()
+            rule.waitUntil(5_000) { runBlocking { app.settings.settings.first().folders }.isNotEmpty() }
+            rule.onNodeWithTag("editDone").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodesWithTag("folder:Folder").fetchSemanticsNodes().isNotEmpty() }
+            if (hold > 0) Thread.sleep(hold)
+            rule.onNodeWithTag("folder:Folder").performClick()
+            rule.onNodeWithTag("folderPanel").assertIsDisplayed()
+            if (hold > 0) Thread.sleep(hold)
+            // Taking one of the two apps out turns the folder back into the other app.
+            val inside = rule.onAllNodes(SemanticsMatcher("in folder") { n ->
+                n.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("inFolder:") == true
+            }).onFirst()
+            inside.performTouchInput { longClick() }
+            rule.waitUntil(5_000) { runBlocking { app.settings.settings.first().folders }.isEmpty() }
+        } finally {
+            runBlocking {
+                app.settings.setFoldersOn(false)
                 app.settings.resetFavorites()
             }
         }

@@ -113,6 +113,7 @@ class SettingsActions(
     val setClockStyle: (dev.rahmanfaizur.dotline.data.ClockStyle) -> Unit = {},
     val setHomeApps: (Int) -> Unit = {},
     val setCompact: (Boolean) -> Unit = {},
+    val setFoldersOn: (Boolean) -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -261,6 +262,9 @@ fun SettingsScreen(
                         }
                         SwitchRow("Compact: smaller tiles, apps as icons only", settings.compact, accent, "toggle:compact") {
                             actions.setCompact(!settings.compact)
+                        }
+                        SwitchRow("Folders: drop an app on another while moving things", settings.foldersOn, accent, "toggle:folders") {
+                            actions.setFoldersOn(!settings.foldersOn)
                         }
                     }
                     Section("Your apps") {
