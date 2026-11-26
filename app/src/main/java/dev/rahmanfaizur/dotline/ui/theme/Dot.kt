@@ -66,13 +66,16 @@ object Dot {
 
     private val TextShadow = Shadow(Color(0x99000000), Offset(0f, 2f), blurRadius = 6f)
     private val InkDark = Color(0xFF101010)
-    private val MutedDark = Color(0xFF3A3A3A)
-    private val FaintDark = Color(0xFF5C5C5C)
 
-    /** Text colours that flip to dark where [LocalDarkText] is on (home tiles over bright wallpapers). */
+    /**
+     * Text colours that follow Settings → Look → Text (white, black or auto). The softer ones are the
+     * same colour, see-through, so labels read as white or black on any wallpaper, never grey.
+     */
     val ink: Color @Composable @ReadOnlyComposable get() = if (LocalDarkText.current) InkDark else Ink
-    val muted: Color @Composable @ReadOnlyComposable get() = if (LocalDarkText.current) MutedDark else Muted
-    val faint: Color @Composable @ReadOnlyComposable get() = if (LocalDarkText.current) FaintDark else Faint
+    val muted: Color @Composable @ReadOnlyComposable get() = ink.copy(alpha = 0.72f)
+    val faint: Color @Composable @ReadOnlyComposable get() = ink.copy(alpha = 0.5f)
+    /** Unlit dots (battery meter, days still to come). */
+    val off: Color @Composable @ReadOnlyComposable get() = ink.copy(alpha = 0.22f)
 
     private val shadow: Shadow? @Composable @ReadOnlyComposable
         get() = if (onWallpaper && !LocalDarkText.current) TextShadow else null

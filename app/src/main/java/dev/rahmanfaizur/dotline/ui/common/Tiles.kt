@@ -67,7 +67,7 @@ fun AccentDot(color: Color, size: Dp = 7.dp) {
 fun DotBar(filled: Int, lit: Color, modifier: Modifier = Modifier, dot: Dp = 7.dp) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(10) { i ->
-            Box(Modifier.size(dot).background(if (i < filled) lit else Dot.SurfaceHigh, CircleShape))
+            Box(Modifier.size(dot).background(if (i < filled) lit else Dot.off, CircleShape))
         }
     }
 }

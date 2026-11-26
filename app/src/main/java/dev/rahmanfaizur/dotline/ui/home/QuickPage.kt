@@ -175,7 +175,7 @@ private fun CalendarTile(modifier: Modifier) {
                                 val color = when {
                                     isToday -> accent
                                     grid.today != null && day < grid.today -> Dot.muted
-                                    else -> Dot.SurfaceHigh
+                                    else -> Dot.off
                                 }
                                 Box(Modifier.size(if (isToday) 11.dp else 8.dp).background(color, CircleShape))
                             }
