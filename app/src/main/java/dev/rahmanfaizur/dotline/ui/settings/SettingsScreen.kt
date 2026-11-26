@@ -115,6 +115,8 @@ class SettingsActions(
     val setCompact: (Boolean) -> Unit = {},
     val setFoldersOn: (Boolean) -> Unit = {},
     val openGuide: () -> Unit = {},
+    /** Opens Android's share sheet with a problem report (the note is what the person typed). */
+    val shareReport: (String) -> Unit = {},
     val saveBackup: () -> Unit = {},
     val loadBackup: () -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
@@ -400,6 +402,31 @@ fun SettingsScreen(
                         SettingRow("A quick guide to gestures, search and making Dotline yours") {
                             Chip("Open", selected = false, accent = accent, tag = "openGuide", onClick = actions.openGuide)
                         }
+                    }
+                    Section("Report a problem") {
+                        var note by rememberSaveable { mutableStateOf("") }
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = note,
+                            onValueChange = { note = it.take(1000) },
+                            textStyle = Dot.label.copy(fontSize = 14.sp),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(accent),
+                            decorationBox = { inner ->
+                                Box(
+                                    Modifier.fillMaxWidth().background(Dot.SurfaceHigh, RoundedCornerShape(14.dp)).padding(12.dp),
+                                ) {
+                                    if (note.isEmpty()) BasicText("What went wrong?", style = Dot.label.copy(color = Dot.Muted, fontSize = 14.sp))
+                                    inner()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("reportNote"),
+                        )
+                        SettingRow("Send it with any app, like WhatsApp") {
+                            Chip("Share", selected = false, accent = accent, tag = "shareReport", onClick = { actions.shareReport(note) })
+                        }
+                        BasicText(
+                            "Adds your Dotline version, phone model, Android version and which features are on. Never your apps or anything personal. Or open an issue at ${dev.rahmanfaizur.dotline.domain.BugReport.ISSUES}",
+                            style = Dot.label.copy(color = Dot.Muted, lineHeight = 18.sp),
+                        )
                     }
                     Section("Privacy & safety") {
                         listOf(

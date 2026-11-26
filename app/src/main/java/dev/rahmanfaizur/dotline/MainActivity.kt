@@ -686,6 +686,16 @@ private fun Launcher(
                     setCompact = { on -> app.appScope.launch { store.setCompact(on) } },
                     setFoldersOn = { on -> app.appScope.launch { store.setFoldersOn(on) } },
                     openGuide = { guideOpen = true },
+                    shareReport = { note ->
+                        val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+                        val text = dev.rahmanfaizur.dotline.domain.BugReport.build(
+                            note, version, "${Build.MANUFACTURER} ${Build.MODEL}", "${Build.VERSION.RELEASE} (${Build.VERSION.SDK_INT})", settings,
+                        )
+                        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+                            .putExtra(Intent.EXTRA_SUBJECT, "Dotline problem")
+                            .putExtra(Intent.EXTRA_TEXT, text)
+                        runCatching { context.startActivity(Intent.createChooser(send, "Send report with").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    },
                     saveBackup = backup.first,
                     loadBackup = backup.second,
                     setPlayerCard = { on ->

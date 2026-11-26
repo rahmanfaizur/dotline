@@ -446,6 +446,24 @@ class LauncherUiTest {
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("welcomeGuide").fetchSemanticsNodes().isEmpty() }
     }
 
+    @Test fun reportAProblemOpensTheShareSheet() {
+        openSettings()
+        rule.onNodeWithTag("page:About").performClick()
+        rule.onNodeWithTag("reportNote").performScrollTo().performTextInput("Clock froze")
+        rule.onNodeWithTag("shareReport").performScrollTo().performClick()
+        try {
+            val end = System.currentTimeMillis() + 8_000
+            var shown = false
+            while (!shown && System.currentTimeMillis() < end) {
+                shown = shellOut("dumpsys window").lines().any { "mCurrentFocus" in it && ("Chooser" in it || "Resolver" in it || "intentresolver" in it) }
+                if (!shown) Thread.sleep(250)
+            }
+            assertTrue("share sheet opened", shown)
+        } finally {
+            shellOut("input keyevent KEYCODE_BACK")
+        }
+    }
+
     @Test fun lockPageShowsLockAndNightClockPreviews() {
         openSettings()
         rule.onNodeWithTag("page:Lock").performClick()
