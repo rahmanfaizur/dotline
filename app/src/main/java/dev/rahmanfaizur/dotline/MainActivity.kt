@@ -63,6 +63,7 @@ import dev.rahmanfaizur.dotline.domain.Pins
 import dev.rahmanfaizur.dotline.ui.LocalIconLoader
 import dev.rahmanfaizur.dotline.ui.drawer.DrawerScreen
 import dev.rahmanfaizur.dotline.ui.home.AppActions
+import dev.rahmanfaizur.dotline.ui.home.AppSlot
 import dev.rahmanfaizur.dotline.ui.home.HomeScreen
 import dev.rahmanfaizur.dotline.ui.home.HomeState
 import dev.rahmanfaizur.dotline.ui.home.QuickPage
@@ -230,6 +231,7 @@ private fun Launcher(
     val visibleApps = remember(apps, settings.hidden) { apps.filter { it.component.flattenToString() !in settings.hidden } }
 
     var drawerOpen by rememberSaveable { mutableStateOf(false) }
+    var editingHome by rememberSaveable { mutableStateOf(false) }
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
@@ -283,6 +285,7 @@ private fun Launcher(
             closeMenu()
             closeDrawer()
             settingsOpen = false
+            editingHome = false
             if (pager.currentPage != homePage) pager.animateScrollToPage(homePage)
         }
     }
@@ -329,10 +332,12 @@ private fun Launcher(
         // Registered first so every overlay's Back wins over it: on the home screen itself
         // Back does nothing, like any launcher (it used to close Dotline).
         BackHandler(enabled = true) {}
+        // Back leaves edit mode first.
+        BackHandler(enabled = editingHome) { editingHome = false }
 
         val darkText = useDarkText(settings.textTone, settings.tileStyle, backdrop)
         CompositionLocalProvider(LocalDarkText provides darkText) {
-        HorizontalPager(state = pager, beyondViewportPageCount = 0, key = { it }) { page ->
+        HorizontalPager(state = pager, beyondViewportPageCount = 0, key = { it }, userScrollEnabled = !editingHome) { page ->
             if (page == homePage) {
                 HomeScreen(
                     state = HomeState(
@@ -350,6 +355,32 @@ private fun Launcher(
                     },
                     onOpenSettings = { settingsOpen = true },
                     onTile = { app.shortcuts.open(it) },
+                    editing = editingHome,
+                    onEditChange = { editingHome = it },
+                    blockOrder = settings.homeOrder,
+                    onReorder = { order -> app.appScope.launch { app.settings.setHomeOrder(order) } },
+                    onSwapApps = { a, b ->
+                        val shownFav = resolve(favoriteKeys).take(4).map { it.component.flattenToString() }
+                        val shownDock = resolve(dockKeys).take(4).map { it.component.flattenToString() }
+                        fun keyAt(s: AppSlot) = (if (s.dock) shownDock else shownFav).getOrNull(s.index)
+                        val ka = keyAt(a)
+                        val kb = keyAt(b)
+                        if (ka != null && kb != null) {
+                            val fav = favoriteKeys.toMutableList()
+                            val dock = dockKeys.toMutableList()
+                            val listA = if (a.dock) dock else fav
+                            val listB = if (b.dock) dock else fav
+                            val ia = listA.indexOf(ka)
+                            val ib = listB.indexOf(kb)
+                            // Swap the two spots (same list or home ↔ dock).
+                            listA[ia] = kb
+                            listB[ib] = ka
+                            app.appScope.launch {
+                                app.settings.setFavorites(fav.distinct())
+                                app.settings.setDock(dock.distinct())
+                            }
+                        }
+                    },
                     nowPlaying = shownPlayer,
                     playerStyle = settings.playerStyle,
                     playerActions = shownPlayer?.let { np ->

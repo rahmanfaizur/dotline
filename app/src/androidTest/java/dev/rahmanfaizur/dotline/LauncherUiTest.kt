@@ -56,6 +56,7 @@ class LauncherUiTest {
             app.settings.setTileStyle(TileStyle.Smoke)
             dev.rahmanfaizur.dotline.data.Feature.entries.forEach { app.features.set(it, true) }
             app.settings.setDrawerBackground(dev.rahmanfaizur.dotline.data.DrawerBackground.Frosted)
+            app.settings.setHomeOrder(dev.rahmanfaizur.dotline.data.HomeBlock.Default)
         }
     }
 
@@ -98,6 +99,7 @@ class LauncherUiTest {
     @Test fun longPressEmptyHomeOpensSettings() {
         // Empty space between the app tiles and the search pill.
         rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("editSettings").performClick()
         rule.onNodeWithTag("settings").assertIsDisplayed()
         rule.onNodeWithTag("page:Look").performClick()
         rule.onNodeWithText("Rounded square").performScrollTo().assertIsDisplayed()
@@ -121,6 +123,7 @@ class LauncherUiTest {
 
     @Test fun settingsOffersSetAsHome() {
         rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("editSettings").performClick()
         rule.onNodeWithTag("setAsHome").assertIsDisplayed()
     }
 
@@ -154,6 +157,7 @@ class LauncherUiTest {
 
     @Test fun lookSectionChangesWallpaperAndTiles() {
         rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("editSettings").performClick()
         rule.onNodeWithTag("page:Look").performClick()
         rule.onNodeWithTag("lookPreview").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("wallpaper:Sunset").performScrollTo().performClick()
@@ -212,6 +216,7 @@ class LauncherUiTest {
 
     private fun openSettings() {
         rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("editSettings").performClick()
         rule.onNodeWithTag("settings").assertIsDisplayed()
     }
 
@@ -224,6 +229,40 @@ class LauncherUiTest {
         }
         rule.onNodeWithTag("page:Home").performClick()
         rule.onNodeWithTag("changeHome").performScrollTo().assertIsDisplayed() // always a way to switch launcher
+    }
+
+    @Test fun dragTheClockGripMovesItDown() {
+        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        rule.onNodeWithTag("editDone").assertIsDisplayed()
+        rule.onNodeWithTag("handle:Clock").performTouchInput {
+            down(center)
+            repeat(30) { moveBy(Offset(0f, 20f)) }
+            up()
+        }
+        rule.waitUntil(5_000) {
+            runBlocking { app.settings.settings.first().homeOrder.first() } != dev.rahmanfaizur.dotline.data.HomeBlock.Clock
+        }
+        rule.onNodeWithTag("editDone").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("editDone").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test fun dragAnAppOntoAnotherSwapsThem() {
+        val before = runBlocking { app.settings.settings.first() }
+        rule.onNodeWithTag("home").performTouchInput { longClick(Offset(width * 0.5f, height * 0.7f)) }
+        val target = rule.onNodeWithTag("slot:home:1").fetchSemanticsNode().boundsInRoot.center
+        val start = rule.onNodeWithTag("slot:home:0").fetchSemanticsNode().boundsInRoot.center
+        rule.onNodeWithTag("slot:home:0").performTouchInput {
+            down(center)
+            val step = (target - start) / 20f
+            repeat(20) { moveBy(step) }
+            up()
+        }
+        rule.waitUntil(5_000) { runBlocking { app.settings.settings.first().favorites } != before.favorites }
+        val after = runBlocking { app.settings.settings.first().favorites }!!.toMutableList()
+        before.favorites?.let { b -> assertTrue("first two home apps swapped", after[0] == b[1] && after[1] == b[0]) }
+        // Put them back.
+        after[0] = after[1].also { after[1] = after[0] }
+        runBlocking { app.settings.setFavorites(after) }
     }
 
     @Test fun lockPageShowsLockAndNightClockPreviews() {

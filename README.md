@@ -37,7 +37,7 @@ Switch on **Show this player there too** and the same player (Cover glow) also s
 
 **Panel tiles.** "Next wallpaper" and "RAM" tiles for the phone's pull-down panel.
 
-**Long-press any app** for app info, add or remove from home, dock or quick open, hide, notification dot, or uninstall (Android asks you to confirm). **Long-press empty space** for Settings.
+**Long-press any app** for app info, add or remove from home, dock or quick open, hide, notification dot, or uninstall (Android asks you to confirm). **Long-press empty space** to move things: drag the grips to reorder the clock, battery and alarm, your apps and the player, or drag an app onto another (or onto the dock) to swap them. Settings is in the same bar.
 
 <p align="center">
 <img src="docs/screenshots/quick-page.jpg" width="200" alt="Quick page with calendar, storage and RAM">
@@ -85,7 +85,7 @@ Release signing reads `~/.config/dotline/keystore.properties` (or the path in `D
 
 ```bash
 ./gradlew testDebugUnitTest             # search, sections, pins, calendar, halftone, blur, dots
-./gradlew connectedDebugAndroidTest     # 37 tests that drive the launcher on a device or emulator
+./gradlew connectedDebugAndroidTest     # 39 tests that drive the launcher on a device or emulator
 ```
 
 The device tests cover the home screen, search, the app list and its scroll handle, every settings page, wallpapers, panel tiles, the screensaver, notification dots, and all three player styles through a real media session.
