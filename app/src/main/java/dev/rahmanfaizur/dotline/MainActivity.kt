@@ -62,6 +62,7 @@ import dev.rahmanfaizur.dotline.data.StorageState
 import dev.rahmanfaizur.dotline.domain.Pins
 import dev.rahmanfaizur.dotline.ui.LocalIconLoader
 import dev.rahmanfaizur.dotline.ui.drawer.DrawerScreen
+import dev.rahmanfaizur.dotline.ui.common.LocalTextTone
 import dev.rahmanfaizur.dotline.ui.home.AppActions
 import dev.rahmanfaizur.dotline.ui.home.AppSlot
 import dev.rahmanfaizur.dotline.ui.home.HomeScreen
@@ -336,7 +337,7 @@ private fun Launcher(
         BackHandler(enabled = editingHome) { editingHome = false }
 
         val darkText = useDarkText(settings.textTone, settings.tileStyle, backdrop)
-        CompositionLocalProvider(LocalDarkText provides darkText) {
+        CompositionLocalProvider(LocalDarkText provides darkText, LocalTextTone provides settings.textTone) {
         HorizontalPager(state = pager, beyondViewportPageCount = 0, key = { it }, userScrollEnabled = !editingHome) { page ->
             if (page == homePage) {
                 HomeScreen(

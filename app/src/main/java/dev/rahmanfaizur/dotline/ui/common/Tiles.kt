@@ -41,13 +41,16 @@ fun Tile(
     padding: Dp = 14.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val tone = rememberTileTone()
     Column(
         modifier
-            .tile(TileShape)
+            .tile(TileShape, tone)
             .padding(padding),
         verticalArrangement = Arrangement.SpaceBetween,
-        content = content,
-    )
+    ) {
+        val scope = this
+        ProvideTileTone(tone) { scope.content() }
+    }
 }
 
 /** Small uppercase grey label, e.g. "BATTERY". */

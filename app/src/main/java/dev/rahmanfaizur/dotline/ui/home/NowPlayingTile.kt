@@ -64,6 +64,8 @@ import dev.rahmanfaizur.dotline.notify.NowPlaying
 import dev.rahmanfaizur.dotline.ui.common.Gap
 import dev.rahmanfaizur.dotline.ui.common.TileShape
 import dev.rahmanfaizur.dotline.ui.common.tile
+import dev.rahmanfaizur.dotline.ui.common.ProvideTileTone
+import dev.rahmanfaizur.dotline.ui.common.rememberTileTone
 import dev.rahmanfaizur.dotline.ui.theme.Dot
 import dev.rahmanfaizur.dotline.ui.theme.LocalAccent
 import kotlinx.coroutines.delay
@@ -179,7 +181,8 @@ private fun WaveProgress(fraction: Float, playing: Boolean, seek: (Float) -> Uni
 @Composable
 private fun DotWavePlayer(np: NowPlaying, art: ImageBitmap?, position: Long, fraction: Float, seek: (Float) -> Unit, a: PlayerActions, modifier: Modifier) {
     val accent = LocalAccent.current
-    Column(modifier.tile(TileShape).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val tone = rememberTileTone()
+    Column(modifier.tile(TileShape, tone).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { ProvideTileTone(tone) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Cover(art, 54.dp, RoundedCornerShape(12.dp))
             Gap(12.dp)
@@ -202,7 +205,7 @@ private fun DotWavePlayer(np: NowPlaying, art: ImageBitmap?, position: Long, fra
             Control("Next", { np.controller?.transportControls?.skipToNext() }) { SkipGlyph(Dot.ink, forward = true) }
             BasicText(mmss(np.durationMs), style = Dot.caption.copy(fontSize = 11.sp))
         }
-    }
+    }}
 }
 
 /** 26 dots; the played part lights up in the accent colour. Tap or drag to jump. */
@@ -238,7 +241,8 @@ private fun VinylPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, a: P
         angle = turn
     }
     val ring = Dot.SurfaceHigh
-    Row(modifier.tile(TileShape).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    val tone = rememberTileTone()
+    Row(modifier.tile(TileShape, tone).padding(14.dp), verticalAlignment = Alignment.CenterVertically) { ProvideTileTone(tone) {
         Box(Modifier.size(86.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.size(86.dp)) {
                 val w = 3.dp.toPx()
@@ -265,7 +269,7 @@ private fun VinylPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, a: P
                 OutputChip(a.outputName, a.openOutput, compact = true)
             }
         }
-    }
+    }}
 }
 
 // ---------- shared pieces ----------

@@ -74,11 +74,38 @@ object Dot {
     val ink: Color @Composable @ReadOnlyComposable get() = if (LocalDarkText.current) InkDark else Ink
     val muted: Color @Composable @ReadOnlyComposable get() = ink.copy(alpha = 0.72f)
     val faint: Color @Composable @ReadOnlyComposable get() = ink.copy(alpha = 0.5f)
+    /**
+     * Battery colour: red at 10% or less, orange at 20% or less, green while charging, otherwise
+     * the normal text colour. Deeper shades when the text is black so they stay readable.
+     */
+    @Composable @ReadOnlyComposable
+    fun battery(percent: Int?, charging: Boolean): Color {
+        val dark = LocalDarkText.current
+        return when {
+            charging -> if (dark) Color(0xFF1B7F37) else Color(0xFF6EE08F)
+            percent != null && percent <= 10 -> if (dark) Color(0xFFC0261D) else Color(0xFFFF5A4F)
+            percent != null && percent <= 20 -> if (dark) Color(0xFFC25A00) else Color(0xFFFFA040)
+            else -> ink
+        }
+    }
+
     /** Unlit dots (battery meter, days still to come). */
     val off: Color @Composable @ReadOnlyComposable get() = ink.copy(alpha = 0.22f)
 
+    /**
+     * On a wallpaper, white text gets a dark shadow and black text a light glow, stronger where the
+     * picture behind fights the text (see [LocalTextHelp]).
+     */
     private val shadow: Shadow? @Composable @ReadOnlyComposable
-        get() = if (onWallpaper && !LocalDarkText.current) TextShadow else null
+        get() {
+            if (!onWallpaper) return null
+            val help = LocalTextHelp.current
+            return if (LocalDarkText.current) {
+                if (help < 0.05f) null else Shadow(Color.White.copy(alpha = 0.55f + 0.4f * help), Offset.Zero, blurRadius = 6f + 8f * help)
+            } else {
+                if (help < 0.05f) TextShadow else Shadow(Color.Black.copy(alpha = 0.6f + 0.35f * help), Offset(0f, 1f), blurRadius = 6f + 8f * help)
+            }
+        }
 
     val label: TextStyle @Composable @ReadOnlyComposable
         get() = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = shadow)
@@ -92,6 +119,9 @@ object Dot {
 
 /** True on home tiles when they should use black text (see Settings → Look → Text). */
 val LocalDarkText = staticCompositionLocalOf { false }
+
+/** How much a tile's text needs help to stand out from the wallpaper behind it (0 = none, 1 = a lot). */
+val LocalTextHelp = staticCompositionLocalOf { 0f }
 
 /** Accent colour chosen in Settings. */
 val LocalAccent = staticCompositionLocalOf { Dot.Red }
