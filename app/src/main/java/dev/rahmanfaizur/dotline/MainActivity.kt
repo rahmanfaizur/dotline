@@ -4,6 +4,7 @@ import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Build
+import dev.rahmanfaizur.dotline.data.StatusBar
 import androidx.compose.ui.graphics.graphicsLayer
 import android.os.Bundle
 import android.provider.Settings
@@ -396,6 +397,7 @@ private fun Launcher(
                     },
                     onOpenSettings = { settingsOpen = true },
                     onTile = { app.shortcuts.open(it) },
+                    onSwipeDown = if (settings.swipeDownNotifications) ({ StatusBar.expandNotifications(context) }) else null,
                     editing = editingHome,
                     onEditChange = { editingHome = it },
                     blockOrder = settings.homeOrder,
@@ -606,6 +608,7 @@ private fun Launcher(
                     setPlayerStyle = { st -> app.appScope.launch { store.setPlayerStyle(st) } },
                     setSpotifyOnly = { only -> app.appScope.launch { store.setSpotifyOnly(only) } },
                     setPhoneWallpaper = { on -> app.appScope.launch { store.setPhoneWallpaper(on) } },
+                    setSwipeDownNotifications = { on -> app.appScope.launch { store.setSwipeDownNotifications(on) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()

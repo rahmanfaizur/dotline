@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Only to put a Dotline wallpaper on the lock screen when asked. It can't read anything. -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <!-- Swipe down on home pulls down the notification panel. It can only open the panel. -->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <!-- Only for the optional player card in the pull-down panel (off by default). Android asks first. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

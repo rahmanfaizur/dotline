@@ -107,6 +107,7 @@ class SettingsActions(
     val setPlayerCard: (Boolean) -> Unit = {},
     val openSpotifyNotifications: () -> Unit = {},
     val setPhoneWallpaper: (Boolean) -> Unit = {},
+    val setSwipeDownNotifications: (Boolean) -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -222,6 +223,11 @@ fun SettingsScreen(
                             Chip("Phone setting", settings.clock == ClockMode.System, accent) { actions.setClock(ClockMode.System) }
                             Chip("24-hour", settings.clock == ClockMode.H24, accent) { actions.setClock(ClockMode.H24) }
                             Chip("12-hour", settings.clock == ClockMode.H12, accent) { actions.setClock(ClockMode.H12) }
+                        }
+                    }
+                    Section("Gestures") {
+                        SwitchRow("Swipe down on home for notifications", settings.swipeDownNotifications, accent, "toggle:swipeDown") {
+                            actions.setSwipeDownNotifications(!settings.swipeDownNotifications)
                         }
                     }
                     Section("Quick page") {

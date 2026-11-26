@@ -17,6 +17,8 @@ ALLOWED=(
   "android.permission.SET_WALLPAPER"
   # Shows the optional player card in the pull-down panel; off by default, Android asks first.
   "android.permission.POST_NOTIFICATIONS"
+  # Swipe down on home pulls down the notification panel; it can only open the panel.
+  "android.permission.EXPAND_STATUS_BAR"
   "dev.rahmanfaizur.dotline.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
   "dev.rahmanfaizur.dotline.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )

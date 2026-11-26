@@ -119,6 +119,8 @@ fun HomeScreen(
     blockOrder: List<HomeBlock> = HomeBlock.Default,
     onReorder: (List<HomeBlock>) -> Unit = {},
     onSwapApps: (AppSlot, AppSlot) -> Unit = { _, _ -> },
+    /** Swipe down on home; null when switched off in Settings. */
+    onSwipeDown: (() -> Unit)? = null,
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -184,13 +186,16 @@ fun HomeScreen(
         Modifier
             .fillMaxSize()
             .testTag("home")
-            .pointerInput(editing) {
+            .pointerInput(editing, onSwipeDown != null) {
                 if (editing) return@pointerInput
                 var total = 0f
                 detectVerticalDragGestures(
                     onDragStart = { total = 0f },
                     onVerticalDrag = { _, dy -> total += dy },
-                    onDragEnd = { if (total < -120f) onOpenApps(false) },
+                    onDragEnd = {
+                        if (total < -120f) onOpenApps(false)
+                        else if (total > 120f) onSwipeDown?.invoke()
+                    },
                 )
             }
             .pointerInput(editing) { if (!editing) detectTapGestures(onLongPress = { onEditChange(true) }) }

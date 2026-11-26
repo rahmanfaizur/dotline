@@ -59,6 +59,8 @@ data class LauncherSettings(
     val homeOrder: List<HomeBlock> = HomeBlock.Default,
     /** Also make it the phone's wallpaper, so Recents and app animations match Dotline. */
     val phoneWallpaper: Boolean = true,
+    /** Swipe down on home opens the notification panel. */
+    val swipeDownNotifications: Boolean = true,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -103,6 +105,7 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setSwipeDownNotifications(on: Boolean) = store.edit { it[SWIPE_DOWN] = on }
     suspend fun setPhoneWallpaper(on: Boolean) = store.edit { it[PHONE_WALLPAPER] = on }
     suspend fun setHomeOrder(order: List<HomeBlock>) = store.edit { it[HOME_ORDER] = order.joinToString(",") { b -> b.name } }
     suspend fun setDotApps(apps: Set<String>) = store.edit { it[DOT_APPS] = apps }
@@ -131,6 +134,7 @@ class SettingsStore(context: Context) {
         playerCard = this[PLAYER_CARD] ?: false,
         homeOrder = HomeBlock.parse(this[HOME_ORDER]),
         phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
+        swipeDownNotifications = this[SWIPE_DOWN] ?: true,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -158,6 +162,7 @@ class SettingsStore(context: Context) {
         val PLAYER_CARD = booleanPreferencesKey("player_card")
         val HOME_ORDER = stringPreferencesKey("home_order")
         val PHONE_WALLPAPER = booleanPreferencesKey("phone_wallpaper")
+        val SWIPE_DOWN = booleanPreferencesKey("swipe_down_notifications")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

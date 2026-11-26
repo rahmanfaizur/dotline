@@ -302,6 +302,27 @@ class LauncherUiTest {
         rule.waitUntil(10_000) { wm.getWallpaperId(android.app.WallpaperManager.FLAG_SYSTEM) != before }
     }
 
+    private fun shellOut(cmd: String): String {
+        val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
+        return android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().readText()
+    }
+
+    @Test fun swipeDownOpensNotifications() {
+        rule.onNodeWithTag("home").performTouchInput { swipeDown(startY = height * 0.45f, endY = height * 0.75f) }
+        try {
+            val end = System.currentTimeMillis() + 5_000
+            var open = false
+            while (!open && System.currentTimeMillis() < end) {
+                open = shellOut("dumpsys window").contains("mCurrentFocus=Window{") &&
+                    shellOut("dumpsys window").lines().any { "mCurrentFocus" in it && "NotificationShade" in it }
+                if (!open) Thread.sleep(200)
+            }
+            assertTrue("notification panel opened", open)
+        } finally {
+            shellOut("cmd statusbar collapse")
+        }
+    }
+
     @Test fun lockPageShowsLockAndNightClockPreviews() {
         openSettings()
         rule.onNodeWithTag("page:Lock").performClick()
