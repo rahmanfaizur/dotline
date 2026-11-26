@@ -39,6 +39,8 @@ Switch on **Show this player there too** and the same player (Cover glow) also s
 
 **Your layout.** Pick 4, 6 or 8 home apps, a compact icon-only layout, Big / Stacked / Small clock styles, and folders (drop one app on another in edit mode). Icons can be the apps' own colours or one-colour "dot" icons in white or your accent colour (on Android 12 Dotline makes them itself). Swipe down on home for notifications. The battery turns orange at 20%, red at 10% and green while charging. Tile text checks the wallpaper right behind each tile, so it stays readable on any photo.
 
+**First open.** A short welcome guide shows the gestures, search tricks and privacy promises (reopen it from Settings → About → How to use).
+
 **Backup.** Settings → About saves your whole setup to a file you choose, and loads it back.
 
 **Long-press any app** for app info, add or remove from home, dock or quick open, hide, notification dot, or uninstall (Android asks you to confirm). **Long-press empty space** to move things: drag the grips to reorder the clock, battery and alarm, your apps and the player, or drag an app onto another (or onto the dock) to swap them. Settings is in the same bar.
@@ -107,6 +109,12 @@ Measured on a mid-range phone (60 Hz):
 ## Undo
 
 Settings → Home screen → Default launcher → **Change**, or on the phone: Settings → Apps → Default apps → Home screen.
+
+## Licence
+
+Dotline is open source, by [@rahmanfaizur](https://github.com/rahmanfaizur).
+
+Copyright (C) 2026 rahmanfaizur. Released under the [GNU General Public License v3.0](LICENSE): you may use, study, change and share it, and if you share a changed version you must share its source under the same licence.
 
 ## Credits
 
