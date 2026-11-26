@@ -17,7 +17,7 @@ No internet permission. No ads. No tracking. Everything stays on the phone.
 
 **All apps.** Swipe up. Real app icons, a big dot letter for the section you're in, and a slim scroll handle on the right edge: drag it and a drop-shaped bubble shows the letter as you fly through the list. Pull down (or press Home) to close.
 
-**Search.** Type a few letters and press Enter to open the top match. It understands prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents.
+**Search.** Type a few letters and press Enter to open the top match. It understands prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents. It also answers sums (`12*8`) and finds phone settings ("wifi", "battery"), all offline.
 
 **Quick page.** Swipe right for a dot calendar, free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Files, memory details).
 
@@ -36,6 +36,10 @@ Switch on **Show this player there too** and the same player (Cover glow) also s
 **Lock screen and clock.** Put the chosen wallpaper on the lock screen, open a full-screen Night clock (shows over the lock screen like an alarm, never unlocks anything), or use the dot clock as the screensaver while charging.
 
 **Panel tiles.** "Next wallpaper" and "RAM" tiles for the phone's pull-down panel.
+
+**Your layout.** Pick 4, 6 or 8 home apps, a compact icon-only layout, Big / Stacked / Small clock styles, and folders (drop one app on another in edit mode). Icons can be the apps' own colours or one-colour "dot" icons in white or your accent colour (on Android 12 Dotline makes them itself). Swipe down on home for notifications. The battery turns orange at 20%, red at 10% and green while charging. Tile text checks the wallpaper right behind each tile, so it stays readable on any photo.
+
+**Backup.** Settings → About saves your whole setup to a file you choose, and loads it back.
 
 **Long-press any app** for app info, add or remove from home, dock or quick open, hide, notification dot, or uninstall (Android asks you to confirm). **Long-press empty space** to move things: drag the grips to reorder the clock, battery and alarm, your apps and the player, or drag an app onto another (or onto the dock) to swap them. Settings is in the same bar.
 
@@ -64,6 +68,7 @@ Dotline has **no internet permission**, so nothing it sees can leave the phone. 
 | `SET_WALLPAPER` | Puts the chosen look on the lock screen | Only when you tap Set; it can't read any wallpaper |
 | Notification access | Dots on chosen apps and Now playing | Off by default. You allow it in Android's settings; Dotline keeps only which apps have a notification and the current song, never notification text |
 | `POST_NOTIFICATIONS` | The optional player card in the pull-down panel and on the lock screen | Off by default. Only after you switch it on, and Android asks you first |
+| `EXPAND_STATUS_BAR` | Swipe down on home opens the notification panel | Only that; it can't read anything. Switch it off in Settings |
 | Photo picker | My photo and Halftone wallpapers | Android's picker hands over only the one photo you choose |
 
 There is no accessibility service, device admin, analytics, crash reporting or ads. [`scripts/check-permissions.sh`](scripts/check-permissions.sh) fails if any other permission appears in the APK.
@@ -85,7 +90,7 @@ Release signing reads `~/.config/dotline/keystore.properties` (or the path in `D
 
 ```bash
 ./gradlew testDebugUnitTest             # search, sections, pins, calendar, halftone, blur, dots
-./gradlew connectedDebugAndroidTest     # 39 tests that drive the launcher on a device or emulator
+./gradlew connectedDebugAndroidTest     # 51 tests that drive the launcher on a device or emulator
 ```
 
 The device tests cover the home screen, search, the app list and its scroll handle, every settings page, wallpapers, panel tiles, the screensaver, notification dots, and all three player styles through a real media session.
