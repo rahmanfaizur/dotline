@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 enum class IconShape { Round, Square }
@@ -175,6 +176,36 @@ class SettingsStore(context: Context) {
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
+    /**
+     * Backup: every Dotline setting (layout, colours, wallpaper choice, folders, switches) as JSON.
+     * Your photo, notification access and the default-launcher choice aren't included.
+     */
+    suspend fun exportBackup(): String {
+        val p = store.data.first()
+        val out = org.json.JSONObject()
+        for (k in BOOL_KEYS + INT_KEYS + STRING_KEYS) p[k]?.let { out.put(k.name, it) }
+        for (k in SET_KEYS) p[k]?.let { out.put(k.name, org.json.JSONArray(it.toList())) }
+        return org.json.JSONObject().put("app", "dotline").put("version", 1).put("settings", out).toString(2)
+    }
+
+    /** Loads a backup made by [exportBackup]. Unknown or wrongly typed entries are skipped. False if it isn't one. */
+    suspend fun importBackup(text: String): Boolean {
+        val s = runCatching {
+            val o = org.json.JSONObject(text)
+            require(o.optString("app") == "dotline")
+            o.getJSONObject("settings")
+        }.getOrNull() ?: return false
+        store.edit { p ->
+            for (k in BOOL_KEYS) if (s.has(k.name)) (s.opt(k.name) as? Boolean)?.let { p[k] = it }
+            for (k in INT_KEYS) if (s.has(k.name)) (s.opt(k.name) as? Int)?.let { p[k] = it }
+            for (k in STRING_KEYS) if (s.has(k.name)) (s.opt(k.name) as? String)?.let { p[k] = it }
+            for (k in SET_KEYS) if (s.has(k.name)) (s.opt(k.name) as? org.json.JSONArray)?.let { a ->
+                p[k] = (0 until a.length()).mapNotNull { a.opt(it) as? String }.toSet()
+            }
+        }
+        return true
+    }
+
     private fun List<String>.join() = joinToString("\n")
     private fun String.split(): List<String> = if (isEmpty()) emptyList() else split("\n")
 
@@ -208,5 +239,14 @@ class SettingsStore(context: Context) {
         val FOLDERS_ON = booleanPreferencesKey("folders_on")
         val FOLDERS = stringPreferencesKey("folders")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
+
+        // What a backup holds, by type.
+        val BOOL_KEYS = listOf(QUICK_PAGE, NOTIF_DOTS, NOW_PLAYING, SPOTIFY_ONLY, PLAYER_CARD, PHONE_WALLPAPER, SWIPE_DOWN, SMART_SEARCH, COMPACT, FOLDERS_ON)
+        val INT_KEYS = listOf(ACCENT, HOME_APPS)
+        val STRING_KEYS = listOf(
+            FAVORITES, DOCK, QUICK, ICON_SHAPE, CLOCK, WALLPAPER, TILE_STYLE, DRAWER_BG, TEXT_TONE,
+            PLAYER_STYLE, HOME_ORDER, ICON_STYLE, CLOCK_STYLE, FOLDERS,
+        )
+        val SET_KEYS = listOf(HIDDEN, DOT_APPS)
     }
 }
