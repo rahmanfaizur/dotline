@@ -405,6 +405,7 @@ private fun Launcher(
                     onOpenSettings = { settingsOpen = true },
                     onTile = { app.shortcuts.open(it) },
                     onSwipeDown = if (settings.swipeDownNotifications) ({ StatusBar.expandNotifications(context) }) else null,
+                    clockStyle = settings.clockStyle,
                     editing = editingHome,
                     onEditChange = { editingHome = it },
                     blockOrder = settings.homeOrder,
@@ -623,6 +624,7 @@ private fun Launcher(
                     setSwipeDownNotifications = { on -> app.appScope.launch { store.setSwipeDownNotifications(on) } },
                     setSmartSearch = { on -> app.appScope.launch { store.setSmartSearch(on) } },
                     setIconStyle = { st -> app.appScope.launch { store.setIconStyle(st) } },
+                    setClockStyle = { st -> app.appScope.launch { store.setClockStyle(st) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()

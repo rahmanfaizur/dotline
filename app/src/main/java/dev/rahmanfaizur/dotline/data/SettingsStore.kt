@@ -64,6 +64,7 @@ data class LauncherSettings(
     /** Search also answers sums and offers phone settings. */
     val smartSearch: Boolean = true,
     val iconStyle: IconStyle = IconStyle.Original,
+    val clockStyle: ClockStyle = ClockStyle.Big,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -71,6 +72,9 @@ private val Context.settingsStore by preferencesDataStore(name = "settings")
 /** The movable parts of home, top to bottom by default. */
 /** App icons: their own colours, or their simple one-colour icon in white or the accent colour. */
 enum class IconStyle { Original, White, Accent }
+
+/** How the clock tile looks on home. */
+enum class ClockStyle { Big, Stacked, Small }
 
 enum class HomeBlock { Clock, Status, Apps, Player;
     companion object {
@@ -111,6 +115,7 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setClockStyle(style: ClockStyle) = store.edit { it[CLOCK_STYLE] = style.name }
     suspend fun setIconStyle(style: IconStyle) = store.edit { it[ICON_STYLE] = style.name }
     suspend fun setSmartSearch(on: Boolean) = store.edit { it[SMART_SEARCH] = on }
     suspend fun setSwipeDownNotifications(on: Boolean) = store.edit { it[SWIPE_DOWN] = on }
@@ -144,6 +149,7 @@ class SettingsStore(context: Context) {
         phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
         swipeDownNotifications = this[SWIPE_DOWN] ?: true,
         smartSearch = this[SMART_SEARCH] ?: true,
+        clockStyle = this[CLOCK_STYLE]?.let { runCatching { ClockStyle.valueOf(it) }.getOrNull() } ?: ClockStyle.Big,
         iconStyle = this[ICON_STYLE]?.let { runCatching { IconStyle.valueOf(it) }.getOrNull() } ?: IconStyle.Original,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
@@ -175,6 +181,7 @@ class SettingsStore(context: Context) {
         val SWIPE_DOWN = booleanPreferencesKey("swipe_down_notifications")
         val SMART_SEARCH = booleanPreferencesKey("smart_search")
         val ICON_STYLE = stringPreferencesKey("icon_style")
+        val CLOCK_STYLE = stringPreferencesKey("clock_style")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

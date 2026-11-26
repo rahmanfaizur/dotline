@@ -110,6 +110,7 @@ class SettingsActions(
     val setSwipeDownNotifications: (Boolean) -> Unit = {},
     val setSmartSearch: (Boolean) -> Unit = {},
     val setIconStyle: (dev.rahmanfaizur.dotline.data.IconStyle) -> Unit = {},
+    val setClockStyle: (dev.rahmanfaizur.dotline.data.ClockStyle) -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -221,6 +222,15 @@ fun SettingsScreen(
                         }
                     }
                     Section("Clock") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                dev.rahmanfaizur.dotline.data.ClockStyle.Big to "Big",
+                                dev.rahmanfaizur.dotline.data.ClockStyle.Stacked to "Stacked",
+                                dev.rahmanfaizur.dotline.data.ClockStyle.Small to "Small",
+                            ).forEach { (st, name) ->
+                                Chip(name, settings.clockStyle == st, accent, tag = "clockStyle:$name") { actions.setClockStyle(st) }
+                            }
+                        }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Chip("Phone setting", settings.clock == ClockMode.System, accent) { actions.setClock(ClockMode.System) }
                             Chip("24-hour", settings.clock == ClockMode.H24, accent) { actions.setClock(ClockMode.H24) }

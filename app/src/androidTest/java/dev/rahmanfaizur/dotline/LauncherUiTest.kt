@@ -332,6 +332,20 @@ class LauncherUiTest {
         rule.onNodeWithTag("setting:Wi-Fi").assertIsDisplayed()
     }
 
+    @Test fun everyClockStyleShowsTheTime() {
+        val hold = InstrumentationRegistry.getArguments().getString("holdMs")?.toLongOrNull() ?: 0L
+        try {
+            for (style in dev.rahmanfaizur.dotline.data.ClockStyle.entries) {
+                runBlocking { app.settings.setClockStyle(style) }
+                rule.waitForIdle()
+                rule.onNodeWithTag("clock", useUnmergedTree = true).assertIsDisplayed()
+                if (hold > 0) Thread.sleep(hold)
+            }
+        } finally {
+            runBlocking { app.settings.setClockStyle(dev.rahmanfaizur.dotline.data.ClockStyle.Big) }
+        }
+    }
+
     @Test fun lockPageShowsLockAndNightClockPreviews() {
         openSettings()
         rule.onNodeWithTag("page:Lock").performClick()

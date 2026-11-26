@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import dev.rahmanfaizur.dotline.data.HomeBlock
+import dev.rahmanfaizur.dotline.data.ClockStyle
 import dev.rahmanfaizur.dotline.ui.theme.LocalDarkText
 import kotlin.math.roundToInt
 import androidx.compose.animation.core.Animatable
@@ -121,6 +122,7 @@ fun HomeScreen(
     onSwapApps: (AppSlot, AppSlot) -> Unit = { _, _ -> },
     /** Swipe down on home; null when switched off in Settings. */
     onSwipeDown: (() -> Unit)? = null,
+    clockStyle: ClockStyle = ClockStyle.Big,
 ) {
     val accent = LocalAccent.current
     val context = LocalContext.current
@@ -229,13 +231,40 @@ fun HomeScreen(
             ) {
                 when (block) {
                     HomeBlock.Clock -> Tile(Modifier.fillMaxWidth().tileTap("Open clock", enabled = !editing) { onTile(Shortcut.Clock) }.testTag("clockTile")) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AccentDot(accent)
-                            Gap(8.dp)
-                            Caption(date)
+                        val t = time(now)
+                        when (clockStyle) {
+                            ClockStyle.Big -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    AccentDot(accent)
+                                    Gap(8.dp)
+                                    Caption(date)
+                                }
+                                Gap(10.dp)
+                                BasicText(t, style = Dot.dots(76), modifier = Modifier.testTag("clock"))
+                            }
+                            // Hours over minutes, with the day and date beside them.
+                            ClockStyle.Stacked -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                val (hh, mm) = t.split(":").let { it[0].padStart(2, '0') to it.getOrElse(1) { "" } }
+                                Column(Modifier.testTag("clock")) {
+                                    BasicText(hh, style = Dot.dots(64).copy(lineHeight = 60.sp))
+                                    BasicText(mm, style = Dot.dots(64, accent).copy(lineHeight = 60.sp))
+                                }
+                                Gap(18.dp)
+                                Column {
+                                    Caption(DateFormat.format("EEEE", Date(now)).toString())
+                                    Gap(4.dp)
+                                    BasicText(DateFormat.format("d MMM", Date(now)).toString(), style = Dot.dots(28))
+                                }
+                            }
+                            // One slim line: time on the left, date on the right.
+                            ClockStyle.Small -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                BasicText(t, style = Dot.dots(40), modifier = Modifier.testTag("clock"))
+                                Spacer(Modifier.weight(1f))
+                                AccentDot(accent)
+                                Gap(8.dp)
+                                Caption(date)
+                            }
                         }
-                        Gap(10.dp)
-                        BasicText(time(now), style = Dot.dots(76), modifier = Modifier.testTag("clock"))
                     }
                     HomeBlock.Status -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Tile(Modifier.weight(1f).height(112.dp).tileTap("Battery settings", enabled = !editing) { onTile(Shortcut.Battery) }) {
