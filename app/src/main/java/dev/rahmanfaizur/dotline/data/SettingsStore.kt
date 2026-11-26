@@ -55,9 +55,23 @@ data class LauncherSettings(
     val spotifyOnly: Boolean = true,
     /** Also show the player as a card in the pull-down panel and on the lock screen. */
     val playerCard: Boolean = false,
+    /** Order of the blocks on home (long-press empty space → drag the grips). */
+    val homeOrder: List<HomeBlock> = HomeBlock.Default,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
+
+/** The movable parts of home, top to bottom by default. */
+enum class HomeBlock { Clock, Status, Apps, Player;
+    companion object {
+        val Default = entries.toList()
+        /** Saved order, ignoring unknown names and adding any block that's missing. */
+        fun parse(saved: String?): List<HomeBlock> {
+            val list = saved?.split(",")?.mapNotNull { n -> entries.firstOrNull { it.name == n } }?.distinct() ?: return Default
+            return list + entries.filter { it !in list }
+        }
+    }
+}
 
 /** Settings saved on the phone only (DataStore file in the app's private folder). */
 class SettingsStore(context: Context) {
@@ -87,6 +101,7 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setHomeOrder(order: List<HomeBlock>) = store.edit { it[HOME_ORDER] = order.joinToString(",") { b -> b.name } }
     suspend fun setDotApps(apps: Set<String>) = store.edit { it[DOT_APPS] = apps }
     suspend fun setTextTone(tone: TextTone) = store.edit { it[TEXT_TONE] = tone.name }
     suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
@@ -111,6 +126,7 @@ class SettingsStore(context: Context) {
         playerStyle = this[PLAYER_STYLE]?.let { runCatching { PlayerStyle.valueOf(it) }.getOrNull() } ?: PlayerStyle.Glow,
         spotifyOnly = this[SPOTIFY_ONLY] ?: true,
         playerCard = this[PLAYER_CARD] ?: false,
+        homeOrder = HomeBlock.parse(this[HOME_ORDER]),
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -136,6 +152,7 @@ class SettingsStore(context: Context) {
         val PLAYER_STYLE = stringPreferencesKey("player_style")
         val SPOTIFY_ONLY = booleanPreferencesKey("spotify_only")
         val PLAYER_CARD = booleanPreferencesKey("player_card")
+        val HOME_ORDER = stringPreferencesKey("home_order")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

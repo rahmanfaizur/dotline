@@ -31,8 +31,8 @@ import kotlinx.coroutines.delay
 val TileShape = RoundedCornerShape(22.dp)
 
 /** Makes a whole tile tappable, with the ripple kept inside its rounded corners. */
-fun Modifier.tileTap(label: String, onClick: () -> Unit): Modifier =
-    clip(TileShape).clickable(onClickLabel = label, onClick = onClick)
+fun Modifier.tileTap(label: String, enabled: Boolean = true, onClick: () -> Unit): Modifier =
+    clip(TileShape).clickable(enabled = enabled, onClickLabel = label, onClick = onClick)
 
 /** The black rounded card every Bento block sits on. */
 @Composable
