@@ -21,6 +21,10 @@ import android.app.PendingIntent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.FlowPreview
+import androidx.compose.ui.graphics.toArgb
+import dev.rahmanfaizur.dotline.ui.theme.Dot
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -29,8 +33,18 @@ import kotlinx.coroutines.withContext
 private const val SPOTIFY = "com.spotify.music"
 
 /** Holds the long-lived pieces so they survive the activity being recreated. */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class DotlineApp : Application() {
+    /** The full screen size in pixels, the way a wallpaper is shown. */
+    private fun screenSize(): Pair<Int, Int> {
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val b = getSystemService(android.view.WindowManager::class.java).maximumWindowMetrics.bounds
+            return b.width() to b.height()
+        }
+        val m = resources.displayMetrics
+        return m.widthPixels to m.heightPixels
+    }
+
     private fun cardFor(np: NowPlaying, output: String): PlayerCard.Content {
         val label = runCatching {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(np.packageName, 0)).toString()
@@ -80,6 +94,19 @@ class DotlineApp : Application() {
                 notifications.wanted = on
                 if (on) DotlineNotifications.instance?.refresh() else notifications.clear()
             }
+        }
+        // Keep the phone's own wallpaper the same as Dotline's (shows behind Recents and app animations).
+        appScope.launch {
+            settings.settings
+                .map { Triple(it.phoneWallpaper, it.wallpaper, it.accent) }
+                .distinctUntilChanged()
+                .combine(wallpapers.photoVersion) { s, _ -> s }
+                .debounce(800)
+                .collectLatest { (on, kind, accent) ->
+                    if (!on) return@collectLatest
+                    val (w, h) = screenSize()
+                    wallpapers.setPhoneWallpaper(kind, Dot.accent(accent).toArgb(), w, h)
+                }
         }
         // The optional player card: follows the song while switched on, gone the moment it's off.
         appScope.launch {

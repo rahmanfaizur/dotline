@@ -106,6 +106,7 @@ class SettingsActions(
     val setSpotifyOnly: (Boolean) -> Unit,
     val setPlayerCard: (Boolean) -> Unit = {},
     val openSpotifyNotifications: () -> Unit = {},
+    val setPhoneWallpaper: (Boolean) -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -525,6 +526,10 @@ private fun LookSection(
                 selected = false, accent = accent, tag = "pickPhoto",
                 onClick = { actions.pickPhoto(settings.wallpaper) },
             )
+        }
+
+        SwitchRow("Also use it as the phone's wallpaper (shows behind Recents)", settings.phoneWallpaper, accent, "toggle:phoneWallpaper") {
+            actions.setPhoneWallpaper(!settings.phoneWallpaper)
         }
 
         Caption("Tiles")

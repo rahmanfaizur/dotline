@@ -57,6 +57,8 @@ data class LauncherSettings(
     val playerCard: Boolean = false,
     /** Order of the blocks on home (long-press empty space → drag the grips). */
     val homeOrder: List<HomeBlock> = HomeBlock.Default,
+    /** Also make it the phone's wallpaper, so Recents and app animations match Dotline. */
+    val phoneWallpaper: Boolean = true,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -101,6 +103,7 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setPhoneWallpaper(on: Boolean) = store.edit { it[PHONE_WALLPAPER] = on }
     suspend fun setHomeOrder(order: List<HomeBlock>) = store.edit { it[HOME_ORDER] = order.joinToString(",") { b -> b.name } }
     suspend fun setDotApps(apps: Set<String>) = store.edit { it[DOT_APPS] = apps }
     suspend fun setTextTone(tone: TextTone) = store.edit { it[TEXT_TONE] = tone.name }
@@ -127,6 +130,7 @@ class SettingsStore(context: Context) {
         spotifyOnly = this[SPOTIFY_ONLY] ?: true,
         playerCard = this[PLAYER_CARD] ?: false,
         homeOrder = HomeBlock.parse(this[HOME_ORDER]),
+        phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -153,6 +157,7 @@ class SettingsStore(context: Context) {
         val SPOTIFY_ONLY = booleanPreferencesKey("spotify_only")
         val PLAYER_CARD = booleanPreferencesKey("player_card")
         val HOME_ORDER = stringPreferencesKey("home_order")
+        val PHONE_WALLPAPER = booleanPreferencesKey("phone_wallpaper")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

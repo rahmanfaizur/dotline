@@ -114,7 +114,28 @@ class Wallpapers(context: Context) {
         }.isSuccess
     }
 
+    private val prefs = app.getSharedPreferences("wallpapers", Context.MODE_PRIVATE)
+
+    /**
+     * Makes the phone's own (home) wallpaper the same picture Dotline draws, so Recents and app
+     * animations show it too. Skipped when nothing changed since the last time. The lock screen is untouched.
+     */
+    suspend fun setPhoneWallpaper(kind: WallpaperKind, accent: Int, w: Int, h: Int): Boolean = withContext(Dispatchers.Default) {
+        val key = "$kind:$accent:${_photoVersion.value}:${w}x$h"
+        if (prefs.getString(SYSTEM_KEY, null) == key) return@withContext true
+        runCatching {
+            val photo = if (kind == WallpaperKind.Photo || kind == WallpaperKind.Halftone) loadPhoto() else null
+            val bmp = WallpaperArt.render(kind, w, h, accent, lock = false, photo = photo)
+                ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLACK) }
+            photo?.recycle()
+            WallpaperManager.getInstance(app).setBitmap(bmp, null, true, WallpaperManager.FLAG_SYSTEM)
+            bmp.recycle()
+            prefs.edit().putString(SYSTEM_KEY, key).apply()
+        }.isSuccess
+    }
+
     private companion object {
         const val MAX_SIDE = 2400
+        const val SYSTEM_KEY = "system_key"
     }
 }
