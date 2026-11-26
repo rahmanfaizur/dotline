@@ -11,6 +11,16 @@ No internet permission. No ads. No tracking. Everything stays on the phone.
 <img src="docs/screenshots/app-list.jpg" width="200" alt="All apps over a frosted wallpaper">
 </p>
 
+## Download
+
+Get the latest **Dotline APK** from [Releases](https://github.com/rahmanfaizur/dotline/releases/latest). Android 10 or newer.
+
+1. Download `Dotline-1.0.0.apk` on your phone and open it. Allow "install unknown apps" for your browser or file app when Android asks (Play Protect may warn about an unknown app; that's normal outside the Play Store).
+2. Open Dotline and tap **Set** to make it your home screen. A short guide shows the basics.
+3. To go back: Settings → Apps → Default apps → Home screen, pick your old launcher, then uninstall Dotline.
+
+Each release lists the APK's SHA-256 so you can check the file is the real one. Found a problem? Settings → About → **Report a problem**, or [open an issue](https://github.com/rahmanfaizur/dotline/issues).
+
 ## What it does
 
 **Home.** A round-dot clock, live battery and next-alarm tiles, four favourite apps, a search bar and a dock. Tap the clock, battery or alarm tile to open the matching app or setting.
