@@ -61,6 +61,8 @@ data class LauncherSettings(
     val phoneWallpaper: Boolean = true,
     /** Swipe down on home opens the notification panel. */
     val swipeDownNotifications: Boolean = true,
+    /** Search also answers sums and offers phone settings. */
+    val smartSearch: Boolean = true,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -105,6 +107,7 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setSmartSearch(on: Boolean) = store.edit { it[SMART_SEARCH] = on }
     suspend fun setSwipeDownNotifications(on: Boolean) = store.edit { it[SWIPE_DOWN] = on }
     suspend fun setPhoneWallpaper(on: Boolean) = store.edit { it[PHONE_WALLPAPER] = on }
     suspend fun setHomeOrder(order: List<HomeBlock>) = store.edit { it[HOME_ORDER] = order.joinToString(",") { b -> b.name } }
@@ -135,6 +138,7 @@ class SettingsStore(context: Context) {
         homeOrder = HomeBlock.parse(this[HOME_ORDER]),
         phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
         swipeDownNotifications = this[SWIPE_DOWN] ?: true,
+        smartSearch = this[SMART_SEARCH] ?: true,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -163,6 +167,7 @@ class SettingsStore(context: Context) {
         val HOME_ORDER = stringPreferencesKey("home_order")
         val PHONE_WALLPAPER = booleanPreferencesKey("phone_wallpaper")
         val SWIPE_DOWN = booleanPreferencesKey("swipe_down_notifications")
+        val SMART_SEARCH = booleanPreferencesKey("smart_search")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

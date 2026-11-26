@@ -108,6 +108,7 @@ class SettingsActions(
     val openSpotifyNotifications: () -> Unit = {},
     val setPhoneWallpaper: (Boolean) -> Unit = {},
     val setSwipeDownNotifications: (Boolean) -> Unit = {},
+    val setSmartSearch: (Boolean) -> Unit = {},
     val removeDotApp: (AppEntry) -> Unit,
     val setAsHome: () -> Unit,
     val changeHome: () -> Unit,
@@ -228,6 +229,11 @@ fun SettingsScreen(
                     Section("Gestures") {
                         SwitchRow("Swipe down on home for notifications", settings.swipeDownNotifications, accent, "toggle:swipeDown") {
                             actions.setSwipeDownNotifications(!settings.swipeDownNotifications)
+                        }
+                    }
+                    Section("Search") {
+                        SwitchRow("Answer sums (12*8) and find phone settings (wifi, battery)", settings.smartSearch, accent, "toggle:smartSearch") {
+                            actions.setSmartSearch(!settings.smartSearch)
                         }
                     }
                     Section("Quick page") {

@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
@@ -313,14 +314,22 @@ class LauncherUiTest {
             val end = System.currentTimeMillis() + 5_000
             var open = false
             while (!open && System.currentTimeMillis() < end) {
-                open = shellOut("dumpsys window").contains("mCurrentFocus=Window{") &&
-                    shellOut("dumpsys window").lines().any { "mCurrentFocus" in it && "NotificationShade" in it }
+                open = shellOut("dumpsys window").lines().any { "mCurrentFocus" in it && "NotificationShade" in it }
                 if (!open) Thread.sleep(200)
             }
             assertTrue("notification panel opened", open)
         } finally {
             shellOut("cmd statusbar collapse")
         }
+    }
+
+    @Test fun searchAnswersSumsAndFindsSettings() {
+        openSearch()
+        rule.onNodeWithTag("searchField").performTextInput("12*8")
+        rule.onNode(hasTestTag("sumResult") and hasText("= 96", substring = true)).assertIsDisplayed()
+        rule.onNodeWithTag("searchField").performTextClearance()
+        rule.onNodeWithTag("searchField").performTextInput("wifi")
+        rule.onNodeWithTag("setting:Wi-Fi").assertIsDisplayed()
     }
 
     @Test fun lockPageShowsLockAndNightClockPreviews() {

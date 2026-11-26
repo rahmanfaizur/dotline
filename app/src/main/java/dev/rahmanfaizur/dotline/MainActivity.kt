@@ -476,6 +476,11 @@ private fun Launcher(
                 onClose = ::closeDrawer,
                 backdrop = backdrop,
                 background = settings.drawerBackground,
+                smartSearch = settings.smartSearch,
+                onOpenSetting = { action ->
+                    runCatching { context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        .onFailure { runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+                },
             )
         }
         // A launcher sits at the bottom of the back stack; Back only closes overlays.
@@ -609,6 +614,7 @@ private fun Launcher(
                     setSpotifyOnly = { only -> app.appScope.launch { store.setSpotifyOnly(only) } },
                     setPhoneWallpaper = { on -> app.appScope.launch { store.setPhoneWallpaper(on) } },
                     setSwipeDownNotifications = { on -> app.appScope.launch { store.setSwipeDownNotifications(on) } },
+                    setSmartSearch = { on -> app.appScope.launch { store.setSmartSearch(on) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()

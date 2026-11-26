@@ -1,5 +1,10 @@
 package dev.rahmanfaizur.dotline.ui.drawer
 
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalClipboardManager
+import dev.rahmanfaizur.dotline.domain.SettingLink
+import dev.rahmanfaizur.dotline.domain.SettingsSearch
+import dev.rahmanfaizur.dotline.domain.Calculator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -127,11 +132,16 @@ fun DrawerScreen(
     modifier: Modifier = Modifier,
     backdrop: Backdrop? = null,
     background: DrawerBackground = DrawerBackground.Black,
+    /** Sums and phone settings in search (Settings → Home screen → Smarter search). */
+    smartSearch: Boolean = false,
+    onOpenSetting: (String) -> Unit = {},
 ) {
     // Plain black when there's no wallpaper; otherwise the chosen see-through look.
     val bg = if (backdrop == null) DrawerBackground.Black else background
     val glassy = bg != DrawerBackground.Black
     val results = remember(apps, query) { AppIndex.search(apps, query) { it.label } }
+    val sum = remember(query, smartSearch) { if (smartSearch) Calculator.evaluate(query) else null }
+    val links = remember(query, smartSearch) { if (smartSearch) SettingsSearch.match(query) else emptyList() }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val pull = rememberPullToClose(onClose)
@@ -173,7 +183,10 @@ fun DrawerScreen(
         SearchField(
             query = query,
             onQueryChange = onQueryChange,
-            onGo = { results.firstOrNull()?.let { actions.launch(it, null) } },
+            onGo = {
+                val top = results.firstOrNull()
+                if (top != null) actions.launch(top, null) else links.firstOrNull()?.let { onOpenSetting(it.action) }
+            },
             focusRequester = focusRequester,
             glassy = glassy,
         )
@@ -182,7 +195,10 @@ fun DrawerScreen(
         if (query.isBlank()) {
             AlphabetGrid(apps, actions, Modifier.weight(1f).nestedScroll(pull.connection), pull)
         } else {
-            SearchResults(results, actions, Modifier.weight(1f).padding(horizontal = 16.dp).nestedScroll(pull.connection), glassy)
+            SearchResults(
+                results, actions, Modifier.weight(1f).padding(horizontal = 16.dp).nestedScroll(pull.connection), glassy,
+                sum = sum, links = links, onOpenSetting = onOpenSetting,
+            )
         }
     }
     }
@@ -554,13 +570,56 @@ private fun AppCell(app: AppEntry, actions: AppActions) {
 }
 
 @Composable
-private fun SearchResults(results: List<AppEntry>, actions: AppActions, modifier: Modifier, glassy: Boolean) {
+private fun SearchResults(
+    results: List<AppEntry>,
+    actions: AppActions,
+    modifier: Modifier,
+    glassy: Boolean,
+    sum: Double? = null,
+    links: List<SettingLink> = emptyList(),
+    onOpenSetting: (String) -> Unit = {},
+) {
     val accent = LocalAccent.current
-    if (results.isEmpty()) {
+    if (results.isEmpty() && sum == null && links.isEmpty()) {
         BasicText("No apps match", style = Dot.caption, modifier = modifier.padding(top = 8.dp))
         return
     }
+    val clipboard = LocalClipboardManager.current
+    var copied by remember(sum) { mutableStateOf(false) }
     LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (sum != null) item(key = "sum") {
+            val answer = Calculator.format(sum)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (glassy) GlassFill else Dot.Surface, RoundedCornerShape(18.dp))
+                    .clickable(onClickLabel = "Copy answer") { clipboard.setText(AnnotatedString(answer)); copied = true }
+                    .testTag("sumResult")
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+            ) {
+                BasicText("= $answer", style = Dot.dots(34, accent), maxLines = 1)
+                BasicText(if (copied) "Copied" else "Tap to copy", style = Dot.caption.copy(fontSize = 10.sp))
+            }
+        }
+        items(links, key = { "setting:" + it.label }) { link ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClickLabel = "Open ${link.label}") { onOpenSetting(link.action) }
+                    .testTag("setting:${link.label}")
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                Box(Modifier.size(36.dp).background(Dot.SurfaceHigh, CircleShape), contentAlignment = Alignment.Center) {
+                    BasicText("⚙", style = Dot.label.copy(fontSize = 17.sp))
+                }
+                Spacer(Modifier.size(14.dp))
+                Column {
+                    BasicText(link.label, style = Dot.label.copy(fontSize = 15.sp))
+                    BasicText("Phone setting", style = Dot.caption.copy(fontSize = 10.sp))
+                }
+            }
+        }
         items(results, key = { it.key }) { app ->
             val top = app == results.first()
             Row(
