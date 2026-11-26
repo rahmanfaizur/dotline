@@ -53,6 +53,8 @@ data class LauncherSettings(
     val playerStyle: PlayerStyle = PlayerStyle.Glow,
     /** Now playing only for Spotify (true) or for any music app. */
     val spotifyOnly: Boolean = true,
+    /** Also show the player as a card in the pull-down panel and on the lock screen. */
+    val playerCard: Boolean = false,
 )
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
@@ -84,6 +86,7 @@ class SettingsStore(context: Context) {
     suspend fun setNowPlaying(on: Boolean) = store.edit { it[NOW_PLAYING] = on }
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
+    suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
     suspend fun setDotApps(apps: Set<String>) = store.edit { it[DOT_APPS] = apps }
     suspend fun setTextTone(tone: TextTone) = store.edit { it[TEXT_TONE] = tone.name }
     suspend fun setDrawerBackground(bg: DrawerBackground) = store.edit { it[DRAWER_BG] = bg.name }
@@ -107,6 +110,7 @@ class SettingsStore(context: Context) {
         dotApps = this[DOT_APPS],
         playerStyle = this[PLAYER_STYLE]?.let { runCatching { PlayerStyle.valueOf(it) }.getOrNull() } ?: PlayerStyle.Glow,
         spotifyOnly = this[SPOTIFY_ONLY] ?: true,
+        playerCard = this[PLAYER_CARD] ?: false,
         textTone = this[TEXT_TONE]?.let { runCatching { TextTone.valueOf(it) }.getOrNull() } ?: TextTone.Auto,
     )
 
@@ -131,6 +135,7 @@ class SettingsStore(context: Context) {
         val DOT_APPS = stringSetPreferencesKey("dot_apps")
         val PLAYER_STYLE = stringPreferencesKey("player_style")
         val SPOTIFY_ONLY = booleanPreferencesKey("spotify_only")
+        val PLAYER_CARD = booleanPreferencesKey("player_card")
         val HOME_PROMPT_DISMISSED = booleanPreferencesKey("home_prompt_dismissed")
     }
 }

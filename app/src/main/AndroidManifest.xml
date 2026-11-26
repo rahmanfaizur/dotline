@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Only to put a Dotline wallpaper on the lock screen when asked. It can't read anything. -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <!-- Only for the optional player card in the pull-down panel (off by default). Android asks first. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Lets LauncherApps list every launchable app (package-visibility rules, Android 11+). -->
     <queries>
@@ -92,6 +94,18 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- The optional player card: its buttons, and a see-through step that opens the speaker picker. -->
+        <receiver
+            android:name=".notify.PlayerCardReceiver"
+            android:exported="false" />
+        <activity
+            android:name=".notify.OutputPickerActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity="dev.rahmanfaizur.dotline.output"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Tiles for the phone's pull-down panel. Only the system can bind them; no permission is requested. -->
         <service

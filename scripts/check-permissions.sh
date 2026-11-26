@@ -15,6 +15,8 @@ ALLOWED=(
   "android.permission.REQUEST_DELETE_PACKAGES"
   # Sets the lock-screen wallpaper when the user taps Set; it can't read any wallpaper or file.
   "android.permission.SET_WALLPAPER"
+  # Shows the optional player card in the pull-down panel; off by default, Android asks first.
+  "android.permission.POST_NOTIFICATIONS"
   "dev.rahmanfaizur.dotline.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
   "dev.rahmanfaizur.dotline.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )
