@@ -23,7 +23,25 @@ class NowPlaying(
     /** The player's own "like" button, if it offers one (Spotify does). */
     val likeAction: String? = null,
     val liked: Boolean = false,
+    /**
+     * True when the app was closed: this is the last song it played (kept in memory only) or, with
+     * an empty [title], the "Play something" card. Controls then wake the app with media keys.
+     */
+    val stopped: Boolean = false,
 ) {
+    /** This song, paused and cut loose from its (gone) player. */
+    fun asStopped() = NowPlaying(
+        packageName, title, artist, art, playing = false, controller = null,
+        durationMs = durationMs, positionMs = positionMs, positionAtMs = 0, speed = speed, stopped = true,
+    )
+
+    /** True for the "Play something" card (nothing played since the phone started). */
+    val idle: Boolean get() = stopped && title.isEmpty()
+
+    companion object {
+        fun idle(packageName: String) = NowPlaying(packageName, "", "", null, playing = false, controller = null, stopped = true)
+    }
+
     fun positionNow(nowElapsed: Long): Long {
         if (!playing || positionAtMs == 0L) return positionMs
         val p = positionMs + ((nowElapsed - positionAtMs) * speed).toLong()
@@ -33,7 +51,7 @@ class NowPlaying(
 
 /**
  * The only things Dotline keeps from notifications: which apps have one right now, and the
- * track that's playing. Never the text of a notification, and nothing is written to disk.
+ * track that's playing (and the last one, in memory). Never the text of a notification, and nothing is written to disk.
  */
 class NotificationHub {
     internal val _active = MutableStateFlow<Set<String>>(emptySet())
@@ -41,6 +59,10 @@ class NotificationHub {
 
     internal val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
     val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying
+
+    internal val _lastPlayed = MutableStateFlow<NowPlaying?>(null)
+    /** The last song seen, so home can keep it after the player is closed. In memory only: gone after a restart. */
+    val lastPlayed: StateFlow<NowPlaying?> = _lastPlayed
 
     internal val _connected = MutableStateFlow(false)
     /** True while Android has Dotline's listener bound, i.e. the user has allowed access. */
@@ -52,5 +74,11 @@ class NotificationHub {
     fun clear() {
         _active.value = emptySet()
         _nowPlaying.value = null
+    }
+
+    /** Called whenever the player changes; remembers real songs. */
+    internal fun publish(np: NowPlaying?) {
+        _nowPlaying.value = np
+        if (np != null && np.title.isNotEmpty()) _lastPlayed.value = np
     }
 }

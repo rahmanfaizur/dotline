@@ -81,14 +81,14 @@ class DotlineNotifications : NotificationListenerService() {
     private fun publishMedia() {
         val c = watched
         val meta = c?.metadata
-        if (!hub.wanted || c == null || meta == null) { hub._nowPlaying.value = null; return }
+        if (!hub.wanted || c == null || meta == null) { hub.publish(null); return }
         val state = c.playbackState
         // Players name their like button differently ("Add to Liked Songs", "Favorite", "Heart").
         val like = state?.customActions?.firstOrNull { a ->
             val n = a.name.toString().lowercase()
             "like" in n || "favo" in n || "heart" in n || "save" in n
         }
-        hub._nowPlaying.value = NowPlaying(
+        hub.publish(NowPlaying(
             packageName = c.packageName,
             title = meta.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty(),
             artist = meta.getString(MediaMetadata.METADATA_KEY_ARTIST)
@@ -102,7 +102,7 @@ class DotlineNotifications : NotificationListenerService() {
             speed = state?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
             likeAction = like?.action,
             liked = like?.name?.toString()?.lowercase()?.let { "remove" in it || "unlike" in it || "liked" in it } == true,
-        )
+        ))
     }
 
     companion object {

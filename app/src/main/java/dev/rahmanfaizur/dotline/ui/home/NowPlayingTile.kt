@@ -80,7 +80,11 @@ class PlayerActions(
     val outputName: String,
     val openPlayer: () -> Unit,
     val openOutput: () -> Unit,
+    /** For a closed music app: press a media key to wake it (it carries on with its last song). */
+    val wake: (PlayerKey) -> Unit = {},
 )
+
+enum class PlayerKey { Play, Next, Previous }
 
 /** Now playing on home, in the style picked in Settings → Notifications. */
 @Composable
@@ -99,6 +103,7 @@ fun NowPlayingTile(np: NowPlaying, style: PlayerStyle, actions: PlayerActions, m
     val fraction = if (np.durationMs > 0) (position.toFloat() / np.durationMs).coerceIn(0f, 1f) else 0f
     val seek: (Float) -> Unit = { f -> if (np.durationMs > 0) np.controller?.transportControls?.seekTo((f * np.durationMs).toLong()) }
     val m = modifier.fillMaxWidth().testTag("nowPlaying")
+    if (np.idle) { IdlePlayer(actions, m); return }
     when (style) {
         PlayerStyle.Glow -> GlowPlayer(np, art, fraction, seek, actions, m)
         PlayerStyle.DotWave -> DotWavePlayer(np, art, position, fraction, seek, actions, m)
@@ -128,15 +133,15 @@ private fun GlowPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, seek:
                 Gap(10.dp)
                 Box(
                     Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xE6FFFFFF))
-                        .clickable(onClickLabel = if (np.playing) "Pause" else "Play") { playPause(np) }
+                        .clickable(onClickLabel = if (np.playing) "Pause" else "Play") { playPause(np, a) }
                         .testTag("playPause"),
                     contentAlignment = Alignment.Center,
                 ) { if (np.playing) PauseGlyph(Color(0xFF111111)) else PlayGlyph(Color(0xFF111111)) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Control("Previous", { np.controller?.transportControls?.skipToPrevious() }) { SkipGlyph(Color.White, forward = false) }
+                Control("Previous", { previous(np, a) }) { SkipGlyph(Color.White, forward = false) }
                 WaveProgress(fraction, np.playing, seek, Modifier.weight(1f).height(28.dp))
-                Control("Next", { np.controller?.transportControls?.skipToNext() }) { SkipGlyph(Color.White, forward = true) }
+                Control("Next", { next(np, a) }) { SkipGlyph(Color.White, forward = true) }
                 np.likeAction?.let { like ->
                     Control(if (np.liked) "Unlike" else "Like", { np.controller?.transportControls?.sendCustomAction(like, null) }) {
                         HeartGlyph(Color.White, filled = np.liked)
@@ -195,14 +200,14 @@ private fun DotWavePlayer(np: NowPlaying, art: ImageBitmap?, position: Long, fra
         DotProgress(fraction, seek, accent)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             BasicText(mmss(position), style = Dot.caption.copy(fontSize = 11.sp))
-            Control("Previous", { np.controller?.transportControls?.skipToPrevious() }) { SkipGlyph(Dot.ink, forward = false) }
+            Control("Previous", { previous(np, a) }) { SkipGlyph(Dot.ink, forward = false) }
             Box(
                 Modifier.size(46.dp).clip(CircleShape).background(accent)
-                    .clickable(onClickLabel = if (np.playing) "Pause" else "Play") { playPause(np) }
+                    .clickable(onClickLabel = if (np.playing) "Pause" else "Play") { playPause(np, a) }
                     .testTag("playPause"),
                 contentAlignment = Alignment.Center,
             ) { if (np.playing) PauseGlyph(Color.Black) else PlayGlyph(Color.Black) }
-            Control("Next", { np.controller?.transportControls?.skipToNext() }) { SkipGlyph(Dot.ink, forward = true) }
+            Control("Next", { next(np, a) }) { SkipGlyph(Dot.ink, forward = true) }
             BasicText(mmss(np.durationMs), style = Dot.caption.copy(fontSize = 11.sp))
         }
     }}
@@ -260,11 +265,11 @@ private fun VinylPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, a: P
                 BasicText("${np.artist} · ${a.sourceName}", style = Dot.label.copy(color = Dot.muted, fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Control("Previous", { np.controller?.transportControls?.skipToPrevious() }) { SkipGlyph(Dot.ink, forward = false) }
-                Control(if (np.playing) "Pause" else "Play", { playPause(np) }, Modifier.testTag("playPause")) {
+                Control("Previous", { previous(np, a) }) { SkipGlyph(Dot.ink, forward = false) }
+                Control(if (np.playing) "Pause" else "Play", { playPause(np, a) }, Modifier.testTag("playPause")) {
                     if (np.playing) PauseGlyph(Dot.ink) else PlayGlyph(Dot.ink)
                 }
-                Control("Next", { np.controller?.transportControls?.skipToNext() }) { SkipGlyph(Dot.ink, forward = true) }
+                Control("Next", { next(np, a) }) { SkipGlyph(Dot.ink, forward = true) }
                 Spacer(Modifier.weight(1f))
                 OutputChip(a.outputName, a.openOutput, compact = true)
             }
@@ -286,8 +291,70 @@ private fun Modifier.seekGestures(seek: (Float) -> Unit, onDrag: (Float?) -> Uni
             ) { change, _ -> last = (change.position.x / size.width).coerceIn(0f, 1f); onDrag(last) }
         }
 
-private fun playPause(np: NowPlaying) =
-    if (np.playing) np.controller?.transportControls?.pause() else np.controller?.transportControls?.play()
+private fun playPause(np: NowPlaying, a: PlayerActions) {
+    val c = np.controller
+    when {
+        c == null -> a.wake(PlayerKey.Play)
+        np.playing -> c.transportControls.pause()
+        else -> c.transportControls.play()
+    }
+}
+
+private fun previous(np: NowPlaying, a: PlayerActions) {
+    np.controller?.transportControls?.skipToPrevious() ?: a.wake(PlayerKey.Previous)
+}
+
+private fun next(np: NowPlaying, a: PlayerActions) {
+    np.controller?.transportControls?.skipToNext() ?: a.wake(PlayerKey.Next)
+}
+
+// ---------- Nothing played since the phone started: an invitation ----------
+
+/** "Play something": a dotted record where the cover goes. Tap to open the app; play wakes its last song. */
+@Composable
+private fun IdlePlayer(a: PlayerActions, modifier: Modifier) {
+    val accent = LocalAccent.current
+    val tone = rememberTileTone()
+    val ink = Dot.ink
+    val spin by rememberInfiniteTransition(label = "idle").animateFloat(
+        0f, 360f, infiniteRepeatable(tween(20_000, easing = LinearEasing)), label = "idleSpin",
+    )
+    Row(
+        modifier.tile(TileShape, tone).clickable(onClickLabel = "Open ${a.sourceName}", onClick = a.openPlayer).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) { ProvideTileTone(tone) {
+        // Rings of dots, slowly turning, like a record waiting to be played.
+        Canvas(Modifier.size(64.dp).graphicsLayer { rotationZ = spin }) {
+            val c = Offset(size.width / 2, size.height / 2)
+            listOf(0.92f to 22, 0.68f to 16, 0.44f to 10).forEachIndexed { ring, (rf, n) ->
+                val r = size.minDimension / 2 * rf
+                for (i in 0 until n) {
+                    val t = (i.toFloat() / n) * 2f * Math.PI.toFloat()
+                    val lead = ring == 0 && i < 3
+                    drawCircle(
+                        if (lead) accent else ink.copy(alpha = 0.18f + 0.12f * ring),
+                        2.dp.toPx(),
+                        Offset(c.x + r * kotlin.math.cos(t), c.y + r * kotlin.math.sin(t)),
+                    )
+                }
+            }
+            drawCircle(accent, 4.dp.toPx(), c)
+        }
+        Gap(14.dp)
+        Column(Modifier.weight(1f)) {
+            Source(a.sourceName, "com.spotify.music")
+            Gap(6.dp)
+            BasicText("PLAY", style = Dot.dots(22), maxLines = 1)
+            BasicText("SOMETHING", style = Dot.dots(22), maxLines = 1)
+        }
+        Box(
+            Modifier.size(48.dp).clip(CircleShape).background(accent)
+                .clickable(onClickLabel = "Play") { a.wake(PlayerKey.Play) }
+                .testTag("playPause"),
+            contentAlignment = Alignment.Center,
+        ) { PlayGlyph(Color.Black) }
+    }}
+}
 
 private fun mmss(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)

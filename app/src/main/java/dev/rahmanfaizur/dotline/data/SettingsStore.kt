@@ -60,6 +60,8 @@ data class LauncherSettings(
     val spotifyOnly: Boolean = true,
     /** Also show the player as a card in the pull-down panel and on the lock screen. */
     val playerCard: Boolean = false,
+    /** Keep the player on home when the music app is closed: the last song, or a "Play something" card. */
+    val keepPlayer: Boolean = true,
     /** Order of the blocks on home (long-press empty space → drag the grips). */
     val homeOrder: List<HomeBlock> = HomeBlock.Default,
     /** Also make it the phone's wallpaper, so Recents and app animations match Dotline. */
@@ -133,6 +135,7 @@ class SettingsStore(context: Context) {
     suspend fun setPlayerStyle(style: PlayerStyle) = store.edit { it[PLAYER_STYLE] = style.name }
     suspend fun setSpotifyOnly(only: Boolean) = store.edit { it[SPOTIFY_ONLY] = only }
     suspend fun setPlayerCard(on: Boolean) = store.edit { it[PLAYER_CARD] = on }
+    suspend fun setKeepPlayer(on: Boolean) = store.edit { it[KEEP_PLAYER] = on }
     suspend fun setFoldersOn(on: Boolean) = store.edit { it[FOLDERS_ON] = on }
     /** Home apps and folders change together (one save, so they never disagree). */
     suspend fun setHomeLayout(favorites: List<String>, folders: Collection<dev.rahmanfaizur.dotline.domain.Folder>) = store.edit {
@@ -178,6 +181,7 @@ class SettingsStore(context: Context) {
         playerStyle = this[PLAYER_STYLE]?.let { runCatching { PlayerStyle.valueOf(it) }.getOrNull() } ?: PlayerStyle.Glow,
         spotifyOnly = this[SPOTIFY_ONLY] ?: true,
         playerCard = this[PLAYER_CARD] ?: false,
+        keepPlayer = this[KEEP_PLAYER] ?: true,
         homeOrder = HomeBlock.parse(this[HOME_ORDER]),
         phoneWallpaper = this[PHONE_WALLPAPER] ?: true,
         wallpaperChosen = this[WALLPAPER] != null,
@@ -246,6 +250,7 @@ class SettingsStore(context: Context) {
         val PLAYER_STYLE = stringPreferencesKey("player_style")
         val SPOTIFY_ONLY = booleanPreferencesKey("spotify_only")
         val PLAYER_CARD = booleanPreferencesKey("player_card")
+        val KEEP_PLAYER = booleanPreferencesKey("keep_player")
         val HOME_ORDER = stringPreferencesKey("home_order")
         val PHONE_WALLPAPER = booleanPreferencesKey("phone_wallpaper")
         val SWIPE_DOWN = booleanPreferencesKey("swipe_down_notifications")
@@ -260,7 +265,7 @@ class SettingsStore(context: Context) {
         val WELCOME_SEEN = booleanPreferencesKey("welcome_seen")
 
         // What a backup holds, by type.
-        val BOOL_KEYS = listOf(QUICK_PAGE, NOTIF_DOTS, NOW_PLAYING, SPOTIFY_ONLY, PLAYER_CARD, PHONE_WALLPAPER, SWIPE_DOWN, SMART_SEARCH, COMPACT, FOLDERS_ON)
+        val BOOL_KEYS = listOf(QUICK_PAGE, NOTIF_DOTS, NOW_PLAYING, SPOTIFY_ONLY, PLAYER_CARD, KEEP_PLAYER, PHONE_WALLPAPER, SWIPE_DOWN, SMART_SEARCH, COMPACT, FOLDERS_ON)
         val INT_KEYS = listOf(ACCENT, HOME_APPS)
         val STRING_KEYS = listOf(
             FAVORITES, DOCK, QUICK, ICON_SHAPE, CLOCK, WALLPAPER, TILE_STYLE, DRAWER_BG, TEXT_TONE, TEXT_FONT,

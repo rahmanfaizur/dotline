@@ -114,6 +114,7 @@ class SettingsActions(
     val setPlayerStyle: (PlayerStyle) -> Unit,
     val setSpotifyOnly: (Boolean) -> Unit,
     val setPlayerCard: (Boolean) -> Unit = {},
+    val setKeepPlayer: (Boolean) -> Unit = {},
     val openSpotifyNotifications: () -> Unit = {},
     val setPhoneWallpaper: (Boolean) -> Unit = {},
     val setSwipeDownNotifications: (Boolean) -> Unit = {},
@@ -388,6 +389,12 @@ fun SettingsScreen(
                                 Chip("Any music app", !settings.spotifyOnly, accent, tag = "player:anyApp") { actions.setSpotifyOnly(false) }
                             }
                             BasicText("The speaker chip on the player opens Android's own speaker picker.", style = Dot.label.copy(color = Dot.Muted))
+                            SwitchRow("Keep the player on home when the music app is closed", settings.keepPlayer, accent, "toggle:keepPlayer") {
+                                actions.setKeepPlayer(!settings.keepPlayer)
+                            }
+                            if (settings.keepPlayer) {
+                                BasicText("It keeps the last song (until the phone restarts); play picks it up again.", style = Dot.label.copy(color = Dot.Muted))
+                            }
                             Caption("Pull-down panel & lock screen")
                             SwitchRow("Show this player there too", settings.playerCard, accent, "toggle:playerCard") {
                                 actions.setPlayerCard(!settings.playerCard)

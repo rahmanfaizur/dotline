@@ -1,5 +1,9 @@
 package dev.rahmanfaizur.dotline
 
+import dev.rahmanfaizur.dotline.ui.home.PlayerKey
+import dev.rahmanfaizur.dotline.data.MediaKeys
+import dev.rahmanfaizur.dotline.notify.NowPlaying
+import kotlinx.coroutines.delay
 import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.content.Intent
@@ -393,13 +397,18 @@ private fun Launcher(
     // Notifications: only which apps have one, and what's playing; empty unless switched on and allowed.
     val activeNotifications by app.notifications.active.collectAsStateWithLifecycle()
     val playing by app.notifications.nowPlaying.collectAsStateWithLifecycle()
+    val lastPlayed by app.notifications.lastPlayed.collectAsStateWithLifecycle()
     val installedPackages = remember(apps) { apps.mapTo(HashSet()) { it.component.packageName } }
     val dotApps = remember(settings.dotApps, installedPackages) { NotificationDots.chosen(settings.dotApps, installedPackages) }
     val dots = NotificationDots.visible(settings.notificationDots && notificationAccess, activeNotifications, dotApps)
     val byPackage = remember(apps) { apps.associateBy { it.component.packageName } }
-    val shownPlayer = playing?.takeIf {
-        settings.nowPlaying && notificationAccess && (!settings.spotifyOnly || it.packageName == "com.spotify.music")
-    }
+    fun playerAllowed(np: NowPlaying) = !settings.spotifyOnly || np.packageName == SPOTIFY
+    // The live player; else (if kept) the last song, stopped; else a "Play something" card for Spotify.
+    val shownPlayer = if (!settings.nowPlaying || !notificationAccess) null else
+        playing?.takeIf(::playerAllowed)
+            ?: if (!settings.keepPlayer) null else
+                lastPlayed?.takeIf(::playerAllowed)?.asStopped()
+                    ?: NowPlaying.idle(SPOTIFY).takeIf { SPOTIFY in byPackage }
     val outputFlow = remember(app) { app.audio.names() }
     val outputName by outputFlow.collectAsStateWithLifecycle("This phone")
     fun openNotificationAccess() {
@@ -505,6 +514,21 @@ private fun Launcher(
                                 }
                             },
                             openOutput = { app.audio.openPicker(np.packageName) },
+                            wake = { key ->
+                                // The app was closed: a media key wakes it with its last song. If nothing
+                                // shows up in a few seconds (or there's no song yet), open the app instead.
+                                if (key == PlayerKey.Play) MediaKeys.play(context, np.packageName)
+                                else if (key == PlayerKey.Next) MediaKeys.next(context, np.packageName)
+                                else MediaKeys.previous(context, np.packageName)
+                                scope.launch {
+                                    delay(3_000)
+                                    if (app.notifications.nowPlaying.value?.packageName != np.packageName) {
+                                        context.packageManager.getLaunchIntentForPackage(np.packageName)?.let {
+                                            runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                        }
+                                    }
+                                }
+                            },
                         )
                     },
                     setHome = if (!home.isDefault && !promptDismissed) {
@@ -705,6 +729,7 @@ private fun Launcher(
                     },
                     saveBackup = backup.first,
                     loadBackup = backup.second,
+                    setKeepPlayer = { on -> app.appScope.launch { store.setKeepPlayer(on) } },
                     setPlayerCard = { on ->
                         app.appScope.launch { store.setPlayerCard(on) }
                         if (on) allowPlayerCard()
@@ -735,3 +760,5 @@ private fun Launcher(
     }
     }
 }
+
+private const val SPOTIFY = "com.spotify.music"
