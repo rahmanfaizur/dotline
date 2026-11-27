@@ -45,8 +45,8 @@ data class LauncherSettings(
     val iconShape: IconShape = IconShape.Round,
     val clock: ClockMode = ClockMode.System,
     val showQuickPage: Boolean = true,
-    /** The battery health tile on the quick page (long-press it to remove). */
-    val showBatteryHealth: Boolean = true,
+    /** The battery health tile on the quick page: off until turned on in Settings (long-press it to remove). */
+    val showBatteryHealth: Boolean = false,
     val wallpaper: WallpaperKind = WallpaperKind.Black,
     val tileStyle: TileStyle = TileStyle.Smoke,
     val drawerBackground: DrawerBackground = DrawerBackground.Frosted,
@@ -174,7 +174,7 @@ class SettingsStore(context: Context) {
         iconShape = this[ICON_SHAPE]?.let { runCatching { IconShape.valueOf(it) }.getOrNull() } ?: IconShape.Round,
         clock = this[CLOCK]?.let { runCatching { ClockMode.valueOf(it) }.getOrNull() } ?: ClockMode.System,
         showQuickPage = this[QUICK_PAGE] ?: true,
-        showBatteryHealth = this[BATTERY_HEALTH] ?: true,
+        showBatteryHealth = this[BATTERY_HEALTH] ?: false,
         wallpaper = this[WALLPAPER]?.let { runCatching { WallpaperKind.valueOf(it) }.getOrNull() } ?: WallpaperKind.Black,
         tileStyle = this[TILE_STYLE]?.let { runCatching { TileStyle.valueOf(it) }.getOrNull() } ?: TileStyle.Smoke,
         drawerBackground = this[DRAWER_BG]?.let { runCatching { DrawerBackground.valueOf(it) }.getOrNull() }

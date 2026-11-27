@@ -29,7 +29,7 @@ Each release lists the APK's SHA-256 so you can check the file is the real one. 
 
 **Search.** Type a few letters and press Enter to open the top match. It understands prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents. It also answers sums (`12*8`) and finds phone settings ("wifi", "battery"), all offline. When no app matches, it offers a web search: press Enter and your default browser searches with its own engine (Dotline itself still never goes online).
 
-**Quick page.** Swipe right for a dot calendar (today's date in big dots, the month as dots, days left and the week number), battery health (temperature, health, charge cycles), free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Battery, Files, memory details).
+**Quick page.** Swipe right for a dot calendar (today's date in big dots, the month as dots, days left and the week number), free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Files, memory details). Battery health (temperature, health, charge cycles) can be added in Settings → Home screen; long-press it to remove it again.
 
 **Look.** Pick a wallpaper (your own photo, or one of five drawn by Dotline: Dot field, Halftone, Sunset, Glow, Horizon), a tile style (smoke glass, clear glass, tinted, outline, floating, solid), the text colour on tiles (auto, white or black), a font for all text (default, italic, italic serif, bold italic serif or bold serif; the dot clock stays dotted), the app list background, seven accent colours and round or rounded-square icons. The previews of home and the app list stay at the top while you pick, one group (tab) at a time, so every change shows straight away.
 
