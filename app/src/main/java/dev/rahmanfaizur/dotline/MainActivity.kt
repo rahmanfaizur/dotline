@@ -283,6 +283,8 @@ private fun Launcher(
     val batteryFlow = remember(app) { app.system.battery() }
     val alarmFlow = remember(app) { app.system.nextAlarm() }
     val battery by batteryFlow.collectAsStateWithLifecycle(null)
+    val batteryLeftFlow = remember(app) { app.system.batteryLeft() }
+    val batteryLeft by batteryLeftFlow.collectAsStateWithLifecycle(null)
     val nextAlarm by alarmFlow.collectAsStateWithLifecycle(null)
 
     val byComponent = remember(apps) { apps.associateBy { it.component.flattenToString() } }
@@ -442,6 +444,7 @@ private fun Launcher(
                         favorites = resolve(favoriteKeys),
                         dock = resolve(dockKeys),
                         battery = battery,
+                        batteryLeftMs = batteryLeft,
                         nextAlarm = nextAlarm,
                         clock = settings.clock,
                         appsLoaded = apps.isNotEmpty(),

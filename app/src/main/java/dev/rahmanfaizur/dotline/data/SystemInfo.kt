@@ -6,6 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.Build
+import android.os.SystemClock
+import dev.rahmanfaizur.dotline.domain.BatteryClock
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import android.os.Environment
 import android.app.ActivityManager
 import android.os.StatFs
@@ -15,7 +20,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-data class BatteryState(val percent: Int, val charging: Boolean, val healthGood: Boolean?)
+data class BatteryState(
+    val percent: Int,
+    val charging: Boolean,
+    val healthGood: Boolean?,
+    /** Battery temperature in °C, if the phone says. */
+    val tempC: Int? = null,
+    /** Full charge cycles so far (Android 14 and newer, where the phone reports it). */
+    val cycles: Int? = null,
+)
 
 data class StorageState(val freeBytes: Long, val totalBytes: Long)
 
@@ -29,6 +42,38 @@ data class MemoryState(val usedBytes: Long, val totalBytes: Long)
 class SystemInfo(private val context: Context) {
 
     fun battery(): Flow<BatteryState> = broadcasts(Intent.ACTION_BATTERY_CHANGED) { it?.toBattery() }
+
+    private val batteryClock = BatteryClock()
+
+    /**
+     * Estimated time left in ms (until empty, or until full while charging), every 30 s while
+     * collected; null while there isn't enough to go on yet. Worked out on the phone, never stored.
+     */
+    fun batteryLeft(): Flow<Long?> = flow {
+        while (true) {
+            emit(runCatching { estimateBatteryLeft() }.getOrNull())
+            delay(30_000)
+        }
+    }.distinctUntilChanged()
+
+    private fun estimateBatteryLeft(): Long? {
+        val b = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.toBattery() ?: return null
+        val now = SystemClock.elapsedRealtime()
+        val bm = context.getSystemService(BatteryManager::class.java)
+        synchronized(batteryClock) {
+            batteryClock.record(now, b.percent, b.charging)
+            if (b.charging) {
+                if (b.percent >= 100) return 0
+                bm.computeChargeTimeRemaining().takeIf { it > 0 }?.let { return it }
+                return batteryClock.fromRate(now, b.percent)
+            }
+            val current = bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)
+                .takeIf { it != 0L && it != Long.MIN_VALUE }
+                ?: bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+            return batteryClock.fromRate(now, b.percent)
+                ?: batteryClock.fromCurrent(bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER), current)
+        }
+    }
 
     /** Trigger time (epoch ms) of the next alarm-clock alarm, or null if none is set. */
     fun nextAlarm(): Flow<Long?> = broadcasts(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED) {
@@ -64,6 +109,8 @@ class SystemInfo(private val context: Context) {
         val scale = getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
         val status = getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val health = getIntExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_UNKNOWN)
+        val temp = getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
+        val cycles = if (Build.VERSION.SDK_INT >= 34) getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1) else -1
         return BatteryState(
             percent = if (level < 0) 0 else level * 100 / scale,
             charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
@@ -72,6 +119,8 @@ class SystemInfo(private val context: Context) {
                 BatteryManager.BATTERY_HEALTH_GOOD -> true
                 else -> false
             },
+            tempC = temp.takeIf { it != Int.MIN_VALUE && it > 0 }?.let { (it + 5) / 10 },
+            cycles = cycles.takeIf { it >= 0 },
         )
     }
 }

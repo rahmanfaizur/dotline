@@ -1,5 +1,13 @@
 package dev.rahmanfaizur.dotline.ui.common
 
+import kotlin.math.abs
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
@@ -67,10 +75,28 @@ fun AccentDot(color: Color, size: Dp = 7.dp) {
 
 /** Ten dots, [filled] of them lit: a battery bar in the dot style. */
 @Composable
-fun DotBar(filled: Int, lit: Color, modifier: Modifier = Modifier, dot: Dp = 7.dp) {
+fun DotBar(filled: Int, lit: Color, modifier: Modifier = Modifier, dot: Dp = 7.dp, charging: Boolean = false) {
+    // While charging, a slow wave of light runs from the last lit dot to the end, over and over.
+    val wave = if (charging && filled < 10) {
+        val t = rememberInfiniteTransition(label = "chargeWave")
+        t.animateFloat(
+            initialValue = filled - 1.5f, targetValue = 11.5f,
+            animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "chargePhase",
+        )
+    } else null
+    val off = Dot.off
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(10) { i ->
-            Box(Modifier.size(dot).background(if (i < filled) lit else Dot.off, CircleShape))
+            Box(
+                Modifier.size(dot).drawBehind {
+                    val c = when {
+                        i < filled -> lit
+                        wave != null -> lerp(off, lit, (1f - abs(wave.value - i) / 1.6f).coerceIn(0f, 1f) * 0.85f)
+                        else -> off
+                    }
+                    drawCircle(c)
+                },
+            )
         }
     }
 }

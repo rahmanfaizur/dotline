@@ -1,5 +1,9 @@
 package dev.rahmanfaizur.dotline.ui.home
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.rahmanfaizur.dotline.domain.BatteryClock
+import androidx.compose.ui.draw.clip
+import androidx.compose.animation.Crossfade
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -92,6 +96,8 @@ class HomeState(
     val appsLoaded: Boolean = true,
     /** Home tiles in order, folders included; defaults to [favorites] as plain apps. */
     val items: List<HomeItem> = favorites.map { HomeItem.App(it) },
+    /** Estimated time left (or until full while charging), null until there's enough to go on. */
+    val batteryLeftMs: Long? = null,
 )
 
 /** What folders on home can do (all saved by the launcher). */
@@ -314,11 +320,48 @@ fun HomeScreen(
                         }
                     }
                     HomeBlock.Status -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Tile(Modifier.weight(1f).height(if (compact) 98.dp else 112.dp).tileTap("Battery settings", enabled = !editing) { onTile(Shortcut.Battery) }) {
-                            val level = Dot.battery(state.battery?.percent, state.battery?.charging == true)
-                            Caption(if (state.battery?.charging == true) "Charging" else "Battery")
-                            BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(if (compact) 30 else 38, level), modifier = Modifier.testTag("batteryLevel"))
-                            DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = level)
+                        // Tap flips between the level and the time left; long-press opens battery settings.
+                        var showTime by rememberSaveable { mutableStateOf(false) }
+                        val charging = state.battery?.charging == true
+                        Tile(
+                            Modifier
+                                .weight(1f)
+                                .height(if (compact) 98.dp else 112.dp)
+                                .clip(TileShape)
+                                .combinedClickable(
+                                    enabled = !editing,
+                                    onClickLabel = if (showTime) "Show battery level" else "Show time left",
+                                    onLongClickLabel = "Battery settings",
+                                    onLongClick = { onTile(Shortcut.Battery) },
+                                ) { showTime = !showTime }
+                                .testTag("batteryTile"),
+                        ) {
+                            val level = Dot.battery(state.battery?.percent, charging)
+                            val big = if (compact) 30 else 38
+                            Crossfade(showTime, label = "batteryFlip") { time ->
+                                Column {
+                                    if (!time) {
+                                        Caption(if (charging) "Charging" else "Battery")
+                                        BasicText("${state.battery?.percent ?: "--"}%", style = Dot.dots(big, level), modifier = Modifier.testTag("batteryLevel"))
+                                    } else {
+                                        val left = state.batteryLeftMs
+                                        Caption(
+                                            when {
+                                                charging && left == 0L -> "Charged"
+                                                charging -> "Full in"
+                                                left == null -> "Measuring"
+                                                else -> "Time left"
+                                            },
+                                        )
+                                        BasicText(
+                                            if (charging && left == 0L) "FULL" else left?.let(BatteryClock::format) ?: "--:--",
+                                            style = Dot.dots(big, level),
+                                            modifier = Modifier.testTag("batteryTime"),
+                                        )
+                                    }
+                                }
+                            }
+                            DotBar(filled = ((state.battery?.percent ?: 0) + 5) / 10, lit = level, charging = charging)
                         }
                         Tile(Modifier.weight(1f).height(if (compact) 98.dp else 112.dp).tileTap("Open alarms", enabled = !editing) { onTile(Shortcut.Alarms) }) {
                             Caption("Alarm")
