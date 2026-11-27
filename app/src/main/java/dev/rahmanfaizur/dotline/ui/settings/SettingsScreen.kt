@@ -97,6 +97,7 @@ class SettingsActions(
     val setIconShape: (IconShape) -> Unit,
     val setClock: (ClockMode) -> Unit,
     val setShowQuickPage: (Boolean) -> Unit,
+    val setShowBatteryHealth: (Boolean) -> Unit = {},
     val setWallpaper: (WallpaperKind) -> Unit,
     val pickPhoto: (WallpaperKind) -> Unit,
     val setTileStyle: (TileStyle) -> Unit,
@@ -272,6 +273,11 @@ fun SettingsScreen(
                         SwitchRow("Swipe right for calendar, storage and RAM", settings.showQuickPage, accent, "toggle:quickPage") {
                             actions.setShowQuickPage(!settings.showQuickPage)
                         }
+                        if (settings.showQuickPage) {
+                            SwitchRow("Battery health (temperature, health, cycles)", settings.showBatteryHealth, accent, "toggle:batteryHealth") {
+                                actions.setShowBatteryHealth(!settings.showBatteryHealth)
+                            }
+                        }
                     }
                     Section("Layout") {
                         Caption("Apps on home")
@@ -393,7 +399,7 @@ fun SettingsScreen(
                                 actions.setKeepPlayer(!settings.keepPlayer)
                             }
                             if (settings.keepPlayer) {
-                                BasicText("It keeps the last song (until the phone restarts); play picks it up again.", style = Dot.label.copy(color = Dot.Muted))
+                                BasicText("It keeps the last song (until the phone restarts); play picks it up again. Long-press the player to hide it.", style = Dot.label.copy(color = Dot.Muted))
                             }
                             Caption("Pull-down panel & lock screen")
                             SwitchRow("Show this player there too", settings.playerCard, accent, "toggle:playerCard") {

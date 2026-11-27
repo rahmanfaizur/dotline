@@ -1,5 +1,7 @@
 package dev.rahmanfaizur.dotline
 
+import dev.rahmanfaizur.dotline.ui.menu.TileMenuSpec
+import dev.rahmanfaizur.dotline.ui.menu.TileMenu
 import dev.rahmanfaizur.dotline.ui.home.PlayerKey
 import dev.rahmanfaizur.dotline.data.MediaKeys
 import dev.rahmanfaizur.dotline.notify.NowPlaying
@@ -314,6 +316,7 @@ private fun Launcher(
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
+    var tileMenu by remember { mutableStateOf<TileMenuSpec?>(null) }
     var menuNote by remember { mutableStateOf<String?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var lockNote by remember { mutableStateOf<String?>(null) }
@@ -514,6 +517,17 @@ private fun Launcher(
                                 }
                             },
                             openOutput = { app.audio.openPicker(np.packageName) },
+                            menu = {
+                                val store = app.settings
+                                tileMenu = TileMenuSpec(
+                                    title = "Player",
+                                    hint = "Bring it back in Settings → Notifications",
+                                    items = listOfNotNull(
+                                        if (settings.keepPlayer) "Hide when the music app is closed" to { app.appScope.launch { store.setKeepPlayer(false) }; Unit } else null,
+                                        "Remove the player from home" to { app.appScope.launch { store.setNowPlaying(false) }; Unit },
+                                    ),
+                                )
+                            },
                             wake = { key ->
                                 // The app was closed: a media key wakes it with its last song. If nothing
                                 // shows up in a few seconds (or there's no song yet), open the app instead.
@@ -544,6 +558,13 @@ private fun Launcher(
                     storage = storage,
                     actions = actions,
                     battery = battery,
+                    batteryHealthMenu = if (!settings.showBatteryHealth) null else ({
+                        tileMenu = TileMenuSpec(
+                            title = "Battery health",
+                            hint = "Bring it back in Settings → Home screen",
+                            items = listOf("Remove from the quick page" to { app.appScope.launch { app.settings.setShowBatteryHealth(false) }; Unit }),
+                        )
+                    }),
                     onOpenSettings = { settingsOpen = true },
                     readMemory = { app.system.memory() },
                     onTile = { app.shortcuts.open(it) },
@@ -629,6 +650,11 @@ private fun Launcher(
         }
         BackHandler(enabled = menuFor != null) { closeMenu() }
 
+        AnimatedVisibility(visible = tileMenu != null, enter = fadeIn(tween(120)), exit = fadeOut(tween(120))) {
+            tileMenu?.let { TileMenu(it, dismiss = { tileMenu = null }) }
+        }
+        BackHandler(enabled = tileMenu != null) { tileMenu = null }
+
         AnimatedVisibility(
             visible = settingsOpen,
             enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { it / 8 },
@@ -663,6 +689,7 @@ private fun Launcher(
                     setIconShape = { sh -> app.appScope.launch { store.setIconShape(sh) } },
                     setClock = { m -> app.appScope.launch { store.setClock(m) } },
                     setShowQuickPage = { on -> app.appScope.launch { store.setShowQuickPage(on) } },
+                    setShowBatteryHealth = { on -> app.appScope.launch { store.setShowBatteryHealth(on) } },
                     setWallpaper = { k ->
                         if (k == WallpaperKind.Photo && !app.wallpapers.hasPhoto) pickPhoto(k)
                         else app.appScope.launch { store.setWallpaper(k) }

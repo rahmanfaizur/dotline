@@ -1,5 +1,8 @@
 package dev.rahmanfaizur.dotline.ui.home
 
+import dev.rahmanfaizur.dotline.ui.common.TileShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.combinedClickable
 import java.time.DayOfWeek
 import androidx.compose.foundation.border
 import androidx.compose.animation.core.RepeatMode
@@ -74,6 +77,8 @@ fun QuickPage(
     readMemory: () -> MemoryState? = { null },
     onTile: (Shortcut) -> Unit = {},
     battery: BatteryState? = null,
+    /** Long-press on battery health: its remove menu. Null hides the tile. */
+    batteryHealthMenu: (() -> Unit)? = null,
 ) {
     // RAM updates every 2 s, only while this page is on screen and the launcher is in front.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -110,7 +115,19 @@ fun QuickPage(
             }
         }
 
-        if (battery != null) BatteryHealthTile(battery, Modifier.fillMaxWidth().tileTap("Battery settings") { onTile(Shortcut.Battery) })
+        if (battery != null && batteryHealthMenu != null) {
+            BatteryHealthTile(
+                battery,
+                Modifier
+                    .fillMaxWidth()
+                    .clip(TileShape)
+                    .combinedClickable(
+                        onClickLabel = "Battery settings",
+                        onLongClickLabel = "Remove battery health",
+                        onLongClick = batteryHealthMenu,
+                    ) { onTile(Shortcut.Battery) },
+            )
+        }
 
         if (quick.isNotEmpty()) {
             Tile(Modifier.fillMaxWidth()) {

@@ -45,6 +45,8 @@ data class LauncherSettings(
     val iconShape: IconShape = IconShape.Round,
     val clock: ClockMode = ClockMode.System,
     val showQuickPage: Boolean = true,
+    /** The battery health tile on the quick page (long-press it to remove). */
+    val showBatteryHealth: Boolean = true,
     val wallpaper: WallpaperKind = WallpaperKind.Black,
     val tileStyle: TileStyle = TileStyle.Smoke,
     val drawerBackground: DrawerBackground = DrawerBackground.Frosted,
@@ -126,6 +128,7 @@ class SettingsStore(context: Context) {
     suspend fun setIconShape(shape: IconShape) = store.edit { it[ICON_SHAPE] = shape.name }
     suspend fun setClock(mode: ClockMode) = store.edit { it[CLOCK] = mode.name }
     suspend fun setShowQuickPage(show: Boolean) = store.edit { it[QUICK_PAGE] = show }
+    suspend fun setShowBatteryHealth(show: Boolean) = store.edit { it[BATTERY_HEALTH] = show }
     suspend fun setWallpaper(kind: WallpaperKind) = store.edit { it[WALLPAPER] = kind.name }
     /** Back to "never picked" (plain black, phone wallpaper left alone). */
     suspend fun resetWallpaper() = store.edit { it.remove(WALLPAPER) }
@@ -171,6 +174,7 @@ class SettingsStore(context: Context) {
         iconShape = this[ICON_SHAPE]?.let { runCatching { IconShape.valueOf(it) }.getOrNull() } ?: IconShape.Round,
         clock = this[CLOCK]?.let { runCatching { ClockMode.valueOf(it) }.getOrNull() } ?: ClockMode.System,
         showQuickPage = this[QUICK_PAGE] ?: true,
+        showBatteryHealth = this[BATTERY_HEALTH] ?: true,
         wallpaper = this[WALLPAPER]?.let { runCatching { WallpaperKind.valueOf(it) }.getOrNull() } ?: WallpaperKind.Black,
         tileStyle = this[TILE_STYLE]?.let { runCatching { TileStyle.valueOf(it) }.getOrNull() } ?: TileStyle.Smoke,
         drawerBackground = this[DRAWER_BG]?.let { runCatching { DrawerBackground.valueOf(it) }.getOrNull() }
@@ -239,6 +243,7 @@ class SettingsStore(context: Context) {
         val ICON_SHAPE = stringPreferencesKey("icon_shape")
         val CLOCK = stringPreferencesKey("clock")
         val QUICK_PAGE = booleanPreferencesKey("quick_page")
+        val BATTERY_HEALTH = booleanPreferencesKey("battery_health")
         val WALLPAPER = stringPreferencesKey("wallpaper")
         val TILE_STYLE = stringPreferencesKey("tile_style")
         val DRAWER_BG = stringPreferencesKey("drawer_bg")
@@ -265,7 +270,7 @@ class SettingsStore(context: Context) {
         val WELCOME_SEEN = booleanPreferencesKey("welcome_seen")
 
         // What a backup holds, by type.
-        val BOOL_KEYS = listOf(QUICK_PAGE, NOTIF_DOTS, NOW_PLAYING, SPOTIFY_ONLY, PLAYER_CARD, KEEP_PLAYER, PHONE_WALLPAPER, SWIPE_DOWN, SMART_SEARCH, COMPACT, FOLDERS_ON)
+        val BOOL_KEYS = listOf(QUICK_PAGE, BATTERY_HEALTH, NOTIF_DOTS, NOW_PLAYING, SPOTIFY_ONLY, PLAYER_CARD, KEEP_PLAYER, PHONE_WALLPAPER, SWIPE_DOWN, SMART_SEARCH, COMPACT, FOLDERS_ON)
         val INT_KEYS = listOf(ACCENT, HOME_APPS)
         val STRING_KEYS = listOf(
             FAVORITES, DOCK, QUICK, ICON_SHAPE, CLOCK, WALLPAPER, TILE_STYLE, DRAWER_BG, TEXT_TONE, TEXT_FONT,

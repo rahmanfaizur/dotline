@@ -38,8 +38,11 @@ class NowPlaying(
     /** True for the "Play something" card (nothing played since the phone started). */
     val idle: Boolean get() = stopped && title.isEmpty()
 
+    /** What the player shows as the song name. */
+    val displayTitle: String get() = if (idle) "Play something" else title.ifBlank { "Playing" }
+
     companion object {
-        fun idle(packageName: String) = NowPlaying(packageName, "", "", null, playing = false, controller = null, stopped = true)
+        fun idle(packageName: String) = NowPlaying(packageName, "", "Tap to start", null, playing = false, controller = null, stopped = true)
     }
 
     fun positionNow(nowElapsed: Long): Long {

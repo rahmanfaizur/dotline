@@ -1,5 +1,9 @@
 package dev.rahmanfaizur.dotline.ui.home
 
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import android.os.SystemClock
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -82,6 +86,8 @@ class PlayerActions(
     val openOutput: () -> Unit,
     /** For a closed music app: press a media key to wake it (it carries on with its last song). */
     val wake: (PlayerKey) -> Unit = {},
+    /** Long-press anywhere on the player: hide or remove it. */
+    val menu: (() -> Unit)? = null,
 )
 
 enum class PlayerKey { Play, Next, Previous }
@@ -103,7 +109,7 @@ fun NowPlayingTile(np: NowPlaying, style: PlayerStyle, actions: PlayerActions, m
     val fraction = if (np.durationMs > 0) (position.toFloat() / np.durationMs).coerceIn(0f, 1f) else 0f
     val seek: (Float) -> Unit = { f -> if (np.durationMs > 0) np.controller?.transportControls?.seekTo((f * np.durationMs).toLong()) }
     val m = modifier.fillMaxWidth().testTag("nowPlaying")
-    if (np.idle) { IdlePlayer(actions, m); return }
+        .then(actions.menu?.let { Modifier.longPressAnywhere(it) } ?: Modifier)
     when (style) {
         PlayerStyle.Glow -> GlowPlayer(np, art, fraction, seek, actions, m)
         PlayerStyle.DotWave -> DotWavePlayer(np, art, position, fraction, seek, actions, m)
@@ -127,7 +133,7 @@ private fun GlowPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, seek:
                 OutputChip(a.outputName, a.openOutput)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Cover(art, 46.dp, RoundedCornerShape(12.dp))
+                Cover(art, 46.dp, RoundedCornerShape(12.dp), np.idle)
                 Gap(12.dp)
                 SongText(np, Modifier.weight(1f).clickable(onClickLabel = "Open player", onClick = a.openPlayer))
                 Gap(10.dp)
@@ -189,10 +195,10 @@ private fun DotWavePlayer(np: NowPlaying, art: ImageBitmap?, position: Long, fra
     val tone = rememberTileTone()
     Column(modifier.tile(TileShape, tone).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { ProvideTileTone(tone) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Cover(art, 54.dp, RoundedCornerShape(12.dp))
+            Cover(art, 54.dp, RoundedCornerShape(12.dp), np.idle)
             Gap(12.dp)
             Column(Modifier.weight(1f).clickable(onClickLabel = "Open player", onClick = a.openPlayer)) {
-                BasicText(np.title.ifBlank { "Playing" }.uppercase(), style = Dot.dots(20), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                BasicText(np.displayTitle.uppercase(), style = Dot.dots(20), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 BasicText(np.artist, style = Dot.label.copy(color = Dot.muted, fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             OutputChip(a.outputName, a.openOutput, compact = true)
@@ -255,13 +261,13 @@ private fun VinylPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, a: P
                 drawArc(ring, 0f, 360f, false, topLeft = Offset(w, w), size = arcSize, style = Stroke(w))
                 drawArc(accent, -90f, 360f * fraction, false, topLeft = Offset(w, w), size = arcSize, style = Stroke(w, cap = StrokeCap.Round))
             }
-            Box(Modifier.graphicsLayer { rotationZ = angle }) { Cover(art, 72.dp, CircleShape) }
+            Box(Modifier.graphicsLayer { rotationZ = angle }) { Cover(art, 72.dp, CircleShape, np.idle) }
             Box(Modifier.size(10.dp).background(Dot.Black, CircleShape).border(2.dp, ring, CircleShape))
         }
         Gap(14.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.clickable(onClickLabel = "Open player", onClick = a.openPlayer)) {
-                BasicText(np.title.ifBlank { "Playing" }, style = Dot.label.copy(fontSize = 15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                BasicText(np.displayTitle, style = Dot.label.copy(fontSize = 15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 BasicText("${np.artist} · ${a.sourceName}", style = Dot.label.copy(color = Dot.muted, fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -278,6 +284,32 @@ private fun VinylPlayer(np: NowPlaying, art: ImageBitmap?, fraction: Float, a: P
 }
 
 // ---------- shared pieces ----------
+
+/**
+ * Long-press anywhere on the player, even over its buttons and progress bar. Watches touches
+ * before the buttons do; a tap or a drag goes through untouched, a held finger opens the menu
+ * and the rest of that touch is swallowed so no button fires.
+ */
+private fun Modifier.longPressAnywhere(onLongPress: () -> Unit): Modifier = pointerInput(onLongPress) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        var ended = false
+        withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            while (true) {
+                val e = awaitPointerEvent(PointerEventPass.Initial)
+                val c = e.changes.firstOrNull { it.id == down.id } ?: e.changes.first()
+                if (!c.pressed || (c.position - down.position).getDistance() > viewConfiguration.touchSlop) { ended = true; break }
+            }
+        }
+        if (!ended) {
+            onLongPress()
+            do {
+                val e = awaitPointerEvent(PointerEventPass.Initial)
+                e.changes.forEach { it.consume() }
+            } while (e.changes.any { it.pressed })
+        }
+    }
+}
 
 /** Tap anywhere on a progress bar to jump there, or drag and let go. */
 private fun Modifier.seekGestures(seek: (Float) -> Unit, onDrag: (Float?) -> Unit): Modifier =
@@ -308,70 +340,49 @@ private fun next(np: NowPlaying, a: PlayerActions) {
     np.controller?.transportControls?.skipToNext() ?: a.wake(PlayerKey.Next)
 }
 
-// ---------- Nothing played since the phone started: an invitation ----------
-
-/** "Play something": a dotted record where the cover goes. Tap to open the app; play wakes its last song. */
-@Composable
-private fun IdlePlayer(a: PlayerActions, modifier: Modifier) {
-    val accent = LocalAccent.current
-    val tone = rememberTileTone()
-    val ink = Dot.ink
-    val spin by rememberInfiniteTransition(label = "idle").animateFloat(
-        0f, 360f, infiniteRepeatable(tween(20_000, easing = LinearEasing)), label = "idleSpin",
-    )
-    Row(
-        modifier.tile(TileShape, tone).clickable(onClickLabel = "Open ${a.sourceName}", onClick = a.openPlayer).padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) { ProvideTileTone(tone) {
-        // Rings of dots, slowly turning, like a record waiting to be played.
-        Canvas(Modifier.size(64.dp).graphicsLayer { rotationZ = spin }) {
-            val c = Offset(size.width / 2, size.height / 2)
-            listOf(0.92f to 22, 0.68f to 16, 0.44f to 10).forEachIndexed { ring, (rf, n) ->
-                val r = size.minDimension / 2 * rf
-                for (i in 0 until n) {
-                    val t = (i.toFloat() / n) * 2f * Math.PI.toFloat()
-                    val lead = ring == 0 && i < 3
-                    drawCircle(
-                        if (lead) accent else ink.copy(alpha = 0.18f + 0.12f * ring),
-                        2.dp.toPx(),
-                        Offset(c.x + r * kotlin.math.cos(t), c.y + r * kotlin.math.sin(t)),
-                    )
-                }
-            }
-            drawCircle(accent, 4.dp.toPx(), c)
-        }
-        Gap(14.dp)
-        Column(Modifier.weight(1f)) {
-            Source(a.sourceName, "com.spotify.music")
-            Gap(6.dp)
-            BasicText("PLAY", style = Dot.dots(22), maxLines = 1)
-            BasicText("SOMETHING", style = Dot.dots(22), maxLines = 1)
-        }
-        Box(
-            Modifier.size(48.dp).clip(CircleShape).background(accent)
-                .clickable(onClickLabel = "Play") { a.wake(PlayerKey.Play) }
-                .testTag("playPause"),
-            contentAlignment = Alignment.Center,
-        ) { PlayGlyph(Color.Black) }
-    }}
-}
-
 private fun mmss(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)
     return "${s / 60}:${(s % 60).toString().padStart(2, '0')}"
 }
 
 @Composable
-private fun Cover(art: ImageBitmap?, size: Dp, shape: Shape) {
-    Box(Modifier.size(size).clip(shape).background(Dot.SurfaceHigh)) {
+private fun Cover(art: ImageBitmap?, size: Dp, shape: Shape, idle: Boolean = false) {
+    Box(Modifier.size(size).clip(shape).background(Dot.SurfaceHigh), contentAlignment = Alignment.Center) {
         if (art != null) Image(art, null, contentScale = ContentScale.Crop, modifier = Modifier.size(size))
+        else if (idle) DottedRecord(size * 0.86f)
+    }
+}
+
+/** Rings of dots, slowly turning, like a record waiting to be played (the "Play something" cover). */
+@Composable
+private fun DottedRecord(size: Dp) {
+    val accent = LocalAccent.current
+    val ink = Dot.ink
+    val spin by rememberInfiniteTransition(label = "idle").animateFloat(
+        0f, 360f, infiniteRepeatable(tween(20_000, easing = LinearEasing)), label = "idleSpin",
+    )
+    Canvas(Modifier.size(size).graphicsLayer { rotationZ = spin }) {
+        val c = Offset(this.size.width / 2, this.size.height / 2)
+        val dot = (this.size.minDimension / 32f).coerceAtLeast(1.5f)
+        listOf(0.92f to 22, 0.68f to 16, 0.44f to 10).forEachIndexed { ring, (rf, n) ->
+            val r = this.size.minDimension / 2 * rf
+            for (i in 0 until n) {
+                val t = (i.toFloat() / n) * 2f * Math.PI.toFloat()
+                val lead = ring == 0 && i < 3
+                drawCircle(
+                    if (lead) accent else ink.copy(alpha = 0.2f + 0.12f * ring), dot,
+                    Offset(c.x + r * kotlin.math.cos(t), c.y + r * kotlin.math.sin(t)),
+                )
+            }
+        }
+        drawCircle(accent, dot * 2f, c)
     }
 }
 
 @Composable
 private fun SongText(np: NowPlaying, modifier: Modifier) {
     Column(modifier) {
-        BasicText(np.title.ifBlank { "Playing" }, style = Dot.label.copy(color = Color.White, fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        BasicText(np.displayTitle, style = Dot.label.copy(color = Color.White, fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (np.artist.isNotBlank()) {
             BasicText(np.artist, style = Dot.label.copy(color = Color(0xFFD6D6D6), fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

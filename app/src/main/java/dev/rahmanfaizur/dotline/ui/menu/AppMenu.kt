@@ -106,3 +106,37 @@ private fun Item(text: String, onClick: () -> Unit, color: Color = Dot.Ink) {
         BasicText(text, style = Dot.label.copy(color = color, fontSize = 15.sp), modifier = Modifier.width(280.dp))
     }
 }
+
+/** A long-press menu for a tile (the player, battery health): a title, a hint and a few choices. */
+class TileMenuSpec(val title: String, val hint: String, val items: List<Pair<String, () -> Unit>>)
+
+/** Same sheet as the app menu: tap outside or press Back to close. */
+@Composable
+fun TileMenu(spec: TileMenuSpec, dismiss: () -> Unit, modifier: Modifier = Modifier) {
+    val accent = LocalAccent.current
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000))
+            .pointerInput(Unit) { detectTapGestures { dismiss() } }
+            .testTag("tileMenu"),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .navigationBarsPadding()
+                .background(Dot.Surface, RoundedCornerShape(26.dp))
+                .pointerInput(Unit) { detectTapGestures { } }
+                .padding(vertical = 10.dp),
+        ) {
+            BasicText(spec.title, style = Dot.label.copy(fontSize = 17.sp), modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp))
+            Caption(spec.hint, color = Dot.Muted, modifier = Modifier.padding(horizontal = 18.dp))
+            Gap(6.dp)
+            spec.items.forEachIndexed { i, (text, act) ->
+                Item(text, { act(); dismiss() }, color = if (i == spec.items.lastIndex) accent else Dot.Ink)
+            }
+        }
+    }
+}
