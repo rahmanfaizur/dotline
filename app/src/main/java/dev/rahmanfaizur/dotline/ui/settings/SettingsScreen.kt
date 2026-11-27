@@ -1,5 +1,11 @@
 package dev.rahmanfaizur.dotline.ui.settings
 
+import dev.rahmanfaizur.dotline.ui.theme.LocalIconShape
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import dev.rahmanfaizur.dotline.ui.home.PlayerActions
 import dev.rahmanfaizur.dotline.ui.home.NowPlayingTile
@@ -188,7 +194,10 @@ fun SettingsScreen(
             )
         }
 
-        Column(
+        // Look keeps its preview pinned and scrolls only its options, so it lays itself out.
+        if (page == SettingsPage.Look) {
+            LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent, Modifier.weight(1f).padding(top = 6.dp))
+        } else Column(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
@@ -224,7 +233,7 @@ fun SettingsScreen(
                     }
                 }
 
-                SettingsPage.Look -> LookSection(settings, backdrop, hasPhoto, photoVersion, thumbnail, actions, accent)
+                SettingsPage.Look -> Unit // drawn above
 
                 SettingsPage.Home -> {
                     Section("Launcher") {
@@ -589,7 +598,15 @@ private val DrawerNames = listOf(
     DrawerBackground.Black to "Black",
 )
 
-/** Wallpaper + tile style, with a small live preview of the home screen. */
+/** The groups on the Look page, one at a time under the preview. */
+private enum class LookTab(val title: String) {
+    Wallpaper("Wallpaper"), Tiles("Tiles"), Text("Text"), Font("Font"), AppList("App list"), Colour("Colour"), Icons("Icons")
+}
+
+/**
+ * Look: a live preview pinned at the top, tabs under it, and only the chosen tab's options below,
+ * so every change shows right away without scrolling back up.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LookSection(
@@ -600,160 +617,291 @@ private fun LookSection(
     thumbnail: suspend (WallpaperKind, Int, Int) -> Bitmap?,
     actions: SettingsActions,
     accent: Color,
+    modifier: Modifier = Modifier,
 ) {
-    Section("Preview") {
-        // Two live previews: home and the app list, side by side.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally)) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                LookPreview(backdrop, settings.tileStyle, useDarkText(settings.textTone, settings.tileStyle, backdrop))
-                Gap(6.dp)
-                Caption("Home")
+    var tab by rememberSaveable { mutableStateOf(LookTab.Wallpaper) }
+    // The app list preview leads on its own tab; home leads everywhere else.
+    val listFirst = tab == LookTab.AppList
+    val both = tab == LookTab.Font || tab == LookTab.Colour
+    val previewHeight = (LocalConfiguration.current.screenHeightDp * 0.34f).coerceIn(190f, 300f).dp
+
+    Column(modifier) {
+        // Preview stage: stays put while the options scroll.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .background(Dot.Surface, RoundedCornerShape(24.dp))
+                .padding(vertical = 14.dp)
+                .height(previewHeight),
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+        ) {
+            val homeLit = !listFirst || both
+            val listLit = listFirst || both
+            PreviewFrame("Home", homeLit, accent, Modifier.clickable(onClickLabel = "Show home options") { if (listFirst) tab = LookTab.Wallpaper }) {
+                LookPreview(backdrop, settings, useDarkText(settings.textTone, settings.tileStyle, backdrop), accent)
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                AppListPreview(backdrop, settings.drawerBackground, accent)
-                Gap(6.dp)
-                Caption("App list")
+            PreviewFrame("App list", listLit, accent, Modifier.clickable(onClickLabel = "Show app list options") { tab = LookTab.AppList }) {
+                AppListPreview(backdrop, settings.drawerBackground, accent, settings.iconStyle)
             }
         }
 
-        Caption("Wallpaper")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            WallpaperKind.entries.forEach { kind ->
-                WallpaperOption(
-                    kind = kind,
-                    selected = settings.wallpaper == kind,
-                    accent = accent,
-                    key = Triple(settings.accent, photoVersion, hasPhoto),
-                    thumbnail = thumbnail,
-                    needsPhoto = kind == WallpaperKind.Photo && !hasPhoto,
-                    onClick = { actions.setWallpaper(kind) },
-                )
-            }
-        }
-        if (settings.wallpaper == WallpaperKind.Photo || settings.wallpaper == WallpaperKind.Halftone) {
-            Chip(
-                if (hasPhoto) "Change photo" else "Choose a photo",
-                selected = false, accent = accent, tag = "pickPhoto",
-                onClick = { actions.pickPhoto(settings.wallpaper) },
-            )
-        }
-
-        SwitchRow("Also use it as the phone's wallpaper (shows behind Recents)", settings.phoneWallpaper, accent, "toggle:phoneWallpaper") {
-            actions.setPhoneWallpaper(!settings.phoneWallpaper)
-        }
-
-        Caption("Tiles")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TileNames.forEach { (style, name) ->
-                Chip(name, settings.tileStyle == style, accent, tag = "tiles:$name") { actions.setTileStyle(style) }
-            }
-        }
-        if (backdrop == null && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Glass, TileStyle.Tinted)) {
-            BasicText("On a black wallpaper these tiles show as solid.", style = Dot.label.copy(color = Dot.Muted))
-        }
-
-        Caption("Text on tiles")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(TextTone.Auto to "Auto", TextTone.White to "White", TextTone.Black to "Black").forEach { (tone, name) ->
-                Chip(name, settings.textTone == tone, accent, tag = "text:$name") { actions.setTextTone(tone) }
-            }
-        }
-        if (settings.textTone == TextTone.Black && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Tinted, TileStyle.Solid)) {
-            BasicText("Black text is hard to read on dark tiles. Try Clear glass, Outline or Floating.", style = Dot.label.copy(color = Dot.Muted))
-        }
-
-        Caption("Font")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FontNames.forEach { (font, name) ->
-                // Each chip is written in its own font.
-                CompositionLocalProvider(LocalTextFont provides font) {
-                    Chip(name, settings.textFont == font, accent, tag = "font:${font.name}") { actions.setTextFont(font) }
+        // Tabs.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            LookTab.entries.forEach { t ->
+                val on = t == tab
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClickLabel = "Show ${t.title} options") { tab = t }
+                        .testTag("lookTab:${t.name}")
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    BasicText(t.title, style = Dot.label.copy(color = if (on) Dot.Ink else Dot.Muted, fontSize = 14.sp))
+                    Gap(5.dp)
+                    Box(Modifier.size(width = 18.dp, height = 3.dp).background(if (on) accent else Color.Transparent, RoundedCornerShape(50)))
                 }
             }
         }
 
-        Caption("App list")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            DrawerNames.forEach { (bg, name) ->
-                Chip(name, settings.drawerBackground == bg, accent, tag = "drawerBg:$name") { actions.setDrawerBackground(bg) }
-            }
-        }
-
-        Caption("Accent colour")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Dot.Accents.forEachIndexed { i, color ->
-                val selected = settings.accent == i
-                Box(
-                    Modifier
-                        .size(36.dp)
-                        .then(if (selected) Modifier.border(2.dp, Dot.Ink, CircleShape) else Modifier)
-                        .padding(5.dp)
-                        .background(color, CircleShape)
-                        .clickable(onClickLabel = Dot.AccentNames[i]) { actions.setAccent(i) }
-                        .testTag("accent:${Dot.AccentNames[i]}"),
-                )
-            }
-        }
-
-        Caption("Icons")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                dev.rahmanfaizur.dotline.data.IconStyle.Original to "App colours",
-                dev.rahmanfaizur.dotline.data.IconStyle.White to "Dot white",
-                dev.rahmanfaizur.dotline.data.IconStyle.Accent to "Dot accent",
-            ).forEach { (st, name) ->
-                Chip(name, settings.iconStyle == st, accent, tag = "icons:$name") { actions.setIconStyle(st) }
-            }
-        }
-        if (settings.iconStyle != dev.rahmanfaizur.dotline.data.IconStyle.Original) {
-            BasicText("Uses each app's simple one-colour icon (Android 13 and newer). Apps without one keep their own icon.", style = Dot.label.copy(color = Dot.Muted))
-        }
-
-        Caption("Icon shape")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ShapeOption("Round", CircleShape, settings.iconShape == IconShape.Round, accent) {
-                actions.setIconShape(IconShape.Round)
-            }
-            ShapeOption("Rounded square", Dot.iconShape(IconShape.Square), settings.iconShape == IconShape.Square, accent) {
-                actions.setIconShape(IconShape.Square)
+        // The chosen tab's options.
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            when (tab) {
+                LookTab.Wallpaper -> {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        WallpaperKind.entries.forEach { kind ->
+                            WallpaperOption(
+                                kind = kind,
+                                selected = settings.wallpaper == kind,
+                                accent = accent,
+                                key = Triple(settings.accent, photoVersion, hasPhoto),
+                                thumbnail = thumbnail,
+                                needsPhoto = kind == WallpaperKind.Photo && !hasPhoto,
+                                onClick = { actions.setWallpaper(kind) },
+                            )
+                        }
+                    }
+                    if (settings.wallpaper == WallpaperKind.Photo || settings.wallpaper == WallpaperKind.Halftone) {
+                        Chip(
+                            if (hasPhoto) "Change photo" else "Choose a photo",
+                            selected = false, accent = accent, tag = "pickPhoto",
+                            onClick = { actions.pickPhoto(settings.wallpaper) },
+                        )
+                    }
+                    SwitchRow("Also use it as the phone's wallpaper (shows behind Recents)", settings.phoneWallpaper, accent, "toggle:phoneWallpaper") {
+                        actions.setPhoneWallpaper(!settings.phoneWallpaper)
+                    }
+                }
+                LookTab.Tiles -> {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TileNames.forEach { (style, name) ->
+                            Chip(name, settings.tileStyle == style, accent, tag = "tiles:$name") { actions.setTileStyle(style) }
+                        }
+                    }
+                    if (backdrop == null && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Glass, TileStyle.Tinted)) {
+                        Hint("On a black wallpaper these tiles show as solid.")
+                    }
+                }
+                LookTab.Text -> {
+                    Caption("Text colour on tiles")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(TextTone.Auto to "Auto", TextTone.White to "White", TextTone.Black to "Black").forEach { (tone, name) ->
+                            Chip(name, settings.textTone == tone, accent, tag = "text:$name") { actions.setTextTone(tone) }
+                        }
+                    }
+                    if (settings.textTone == TextTone.Black && settings.tileStyle in listOf(TileStyle.Smoke, TileStyle.Tinted, TileStyle.Solid)) {
+                        Hint("Black text is hard to read on dark tiles. Try Clear glass, Outline or Floating.")
+                    } else if (settings.textTone == TextTone.Auto) {
+                        Hint("Auto picks black or white for each tile, from the picture behind it.")
+                    }
+                }
+                LookTab.Font -> {
+                    // A list of samples, each written in its own font.
+                    FontNames.forEach { (font, name) ->
+                        val on = settings.textFont == font
+                        CompositionLocalProvider(LocalTextFont provides font) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Dot.Surface)
+                                    .border(if (on) 2.dp else 1.dp, if (on) accent else Dot.SurfaceHigh, RoundedCornerShape(16.dp))
+                                    .clickable(onClickLabel = "Use $name") { actions.setTextFont(font) }
+                                    .testTag("font:${font.name}")
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    BasicText(name, style = Dot.label.copy(color = Dot.Ink, fontSize = 19.sp))
+                                    BasicText("Spotify · Search apps · 84%", style = Dot.label.copy(color = Dot.Muted, fontSize = 13.sp))
+                                }
+                                if (on) BasicText("✓", style = Dot.label.copy(color = accent, fontSize = 18.sp))
+                            }
+                        }
+                    }
+                    Hint("The dot clock and big dot letters always stay dotted.")
+                }
+                LookTab.AppList -> {
+                    Caption("Background")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DrawerNames.forEach { (bg, name) ->
+                            Chip(name, settings.drawerBackground == bg, accent, tag = "drawerBg:$name") { actions.setDrawerBackground(bg) }
+                        }
+                    }
+                    if (backdrop == null) Hint("On a black wallpaper the app list is black too.")
+                }
+                LookTab.Colour -> {
+                    Caption("Accent colour")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Dot.Accents.forEachIndexed { i, color ->
+                            val selected = settings.accent == i
+                            Box(
+                                Modifier
+                                    .size(44.dp)
+                                    .then(if (selected) Modifier.border(2.dp, Dot.Ink, CircleShape) else Modifier)
+                                    .padding(5.dp)
+                                    .background(color, CircleShape)
+                                    .clickable(onClickLabel = Dot.AccentNames[i]) { actions.setAccent(i) }
+                                    .testTag("accent:${Dot.AccentNames[i]}"),
+                            )
+                        }
+                    }
+                    BasicText(Dot.AccentNames.getOrElse(settings.accent) { "" }, style = Dot.label.copy(color = Dot.Muted, fontSize = 13.sp))
+                }
+                LookTab.Icons -> {
+                    Caption("Icon colours")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            dev.rahmanfaizur.dotline.data.IconStyle.Original to "App colours",
+                            dev.rahmanfaizur.dotline.data.IconStyle.White to "Dot white",
+                            dev.rahmanfaizur.dotline.data.IconStyle.Accent to "Dot accent",
+                        ).forEach { (st, name) ->
+                            Chip(name, settings.iconStyle == st, accent, tag = "icons:$name") { actions.setIconStyle(st) }
+                        }
+                    }
+                    if (settings.iconStyle != dev.rahmanfaizur.dotline.data.IconStyle.Original) {
+                        Hint("Uses each app's simple one-colour icon (Android 13 and newer). Apps without one keep their own icon.")
+                    }
+                    Caption("Icon shape")
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ShapeOption("Round", CircleShape, settings.iconShape == IconShape.Round, accent) {
+                            actions.setIconShape(IconShape.Round)
+                        }
+                        ShapeOption("Rounded square", Dot.iconShape(IconShape.Square), settings.iconShape == IconShape.Square, accent) {
+                            actions.setIconShape(IconShape.Square)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-/** A tiny home screen drawn with the real wallpaper and tile code. */
 @Composable
-private fun LookPreview(backdrop: Backdrop?, style: TileStyle, darkText: Boolean) {
-    CompositionLocalProvider(LocalDarkText provides darkText) {
+private fun Hint(text: String) = BasicText(text, style = Dot.label.copy(color = Dot.Muted))
+
+/** One phone in the preview stage: full strength when it shows what the open tab changes. */
+@Composable
+private fun PreviewFrame(label: String, lit: Boolean, accent: Color, modifier: Modifier, content: @Composable () -> Unit) {
+    val fade by animateFloatAsState(if (lit) 1f else 0.45f, label = "previewFade")
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.fillMaxHeight().graphicsLayer { alpha = fade },
+    ) {
+        Box(Modifier.weight(1f).aspectRatio(9f / 20f, matchHeightConstraintsFirst = true)) { content() }
+        Gap(8.dp)
+        BasicText(
+            label.uppercase(),
+            style = Dot.caption.copy(color = if (lit) accent else Dot.Muted, fontSize = 10.sp),
+        )
+    }
+}
+
+/** Sample icons for the previews, in the chosen icon colours. */
+private val SampleIconColours = listOf(Color(0xFF1ED760), Color(0xFF6FA8FF), Color(0xFFF0B44C), Color(0xFFFF6FAE))
+
+@Composable
+private fun SampleIcon(i: Int, size: androidx.compose.ui.unit.Dp, style: dev.rahmanfaizur.dotline.data.IconStyle, accent: Color) {
+    val colour = when (style) {
+        dev.rahmanfaizur.dotline.data.IconStyle.Original -> SampleIconColours[i % SampleIconColours.size]
+        dev.rahmanfaizur.dotline.data.IconStyle.White -> Dot.Ink
+        dev.rahmanfaizur.dotline.data.IconStyle.Accent -> accent
+    }
+    Box(Modifier.size(size).background(colour, LocalIconShape.current))
+}
+
+/** A small home screen drawn with the real wallpaper, tile and text code, with real words so font and colour show. */
+@Composable
+private fun LookPreview(backdrop: Backdrop?, settings: LauncherSettings, darkText: Boolean, accent: Color) {
+    CompositionLocalProvider(
+        LocalDarkText provides darkText,
+        LocalIconShape provides Dot.iconShape(settings.iconShape),
+    ) {
     WallpaperArea(
         backdrop = backdrop,
-        style = style,
+        style = settings.tileStyle,
         modifier = Modifier
-            .width(112.dp)
-            .aspectRatio(9f / 20f)
+            .fillMaxSize()
             .clip(RoundedCornerShape(18.dp))
             .border(2.dp, Dot.SurfaceHigh, RoundedCornerShape(18.dp))
             .testTag("lookPreview"),
     ) {
-        Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Spacer(Modifier.height(8.dp))
-            Column(Modifier.fillMaxWidth().tile(RoundedCornerShape(10.dp)).padding(7.dp)) {
+        val tileShape = RoundedCornerShape(10.dp)
+        val small = Dot.caption.copy(fontSize = 5.sp, letterSpacing = 0.4.sp)
+        Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Spacer(Modifier.height(6.dp))
+            Column(Modifier.fillMaxWidth().tile(tileShape).padding(6.dp)) {
+                BasicText("FRI, 27 NOV", style = small, maxLines = 1)
                 BasicText("17:48", style = Dot.dots(22))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                repeat(2) { Box(Modifier.weight(1f).height(34.dp).tile(RoundedCornerShape(10.dp))) }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f).tile(tileShape).padding(5.dp)) {
+                    BasicText("BATTERY", style = small, maxLines = 1)
+                    BasicText("84%", style = Dot.dots(11))
+                }
+                Column(Modifier.weight(1f).tile(tileShape).padding(5.dp)) {
+                    BasicText("ALARM", style = small, maxLines = 1)
+                    BasicText("07:30", style = Dot.dots(11))
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                repeat(2) {
-                    Row(
-                        Modifier.weight(1f).tile(RoundedCornerShape(10.dp)).padding(5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) { Box(Modifier.size(12.dp).background(Dot.Ink, CircleShape)) }
+            listOf("Music" to "Photos", "Maps" to "Mail").forEachIndexed { row, (a, b) ->
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf(a, b).forEachIndexed { col, name ->
+                        Row(
+                            Modifier.weight(1f).tile(tileShape).padding(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SampleIcon(row * 2 + col, 11.dp, settings.iconStyle, accent)
+                            Spacer(Modifier.width(3.dp))
+                            BasicText(name, style = Dot.label.copy(fontSize = 6.5.sp), maxLines = 1)
+                        }
+                    }
                 }
             }
             Spacer(Modifier.weight(1f))
-            Box(Modifier.fillMaxWidth().height(16.dp).tile(RoundedCornerShape(50)))
-            Box(Modifier.fillMaxWidth().height(22.dp).tile(RoundedCornerShape(50)))
+            Box(Modifier.fillMaxWidth().tile(RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 4.dp)) {
+                BasicText("Search apps", style = Dot.label.copy(color = Dot.muted, fontSize = 6.sp), maxLines = 1)
+            }
+            Row(
+                Modifier.fillMaxWidth().tile(RoundedCornerShape(50)).padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                repeat(3) { SampleIcon(it + 1, 12.dp, settings.iconStyle, accent) }
+            }
         }
     }
     }
@@ -761,13 +909,12 @@ private fun LookPreview(backdrop: Backdrop?, style: TileStyle, darkText: Boolean
 
 /** A tiny app list drawn with the chosen background, so the choice shows before you leave Settings. */
 @Composable
-private fun AppListPreview(backdrop: Backdrop?, bg: DrawerBackground, accent: Color) {
+private fun AppListPreview(backdrop: Backdrop?, bg: DrawerBackground, accent: Color, iconStyle: dev.rahmanfaizur.dotline.data.IconStyle) {
     val mode = if (backdrop == null) DrawerBackground.Black else bg
     val outer = RoundedCornerShape(18.dp)
     Box(
         Modifier
-            .width(112.dp)
-            .aspectRatio(9f / 20f)
+            .fillMaxSize()
             .clip(outer)
             .border(2.dp, Dot.SurfaceHigh, outer)
             .background(Dot.Black)
@@ -795,13 +942,21 @@ private fun AppListPreview(backdrop: Backdrop?, bg: DrawerBackground, accent: Co
         val glassy = mode != DrawerBackground.Black
         Column(Modifier.fillMaxSize().padding(start = 7.dp, end = 7.dp, top = 15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(
-                Modifier.fillMaxWidth().height(14.dp)
-                    .background(if (glassy) Color(0x1AFFFFFF) else Dot.Surface, RoundedCornerShape(50)),
-            )
+                Modifier.fillMaxWidth()
+                    .background(if (glassy) Color(0x1AFFFFFF) else Dot.Surface, RoundedCornerShape(50))
+                    .padding(horizontal = 7.dp, vertical = 4.dp),
+            ) { BasicText("Search apps", style = Dot.label.copy(color = Dot.Muted, fontSize = 6.sp), maxLines = 1) }
             BasicText("A", style = Dot.dots(20, accent))
-            repeat(5) {
+            val names = listOf("Alarm", "Amazon", "Apps", "Atlas", "Audio", "Auto", "Avatar", "Axis")
+            repeat(4) { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    repeat(4) { Box(Modifier.size(15.dp).background(Dot.Ink.copy(alpha = 0.85f), CircleShape)) }
+                    repeat(4) { col ->
+                        val i = row * 4 + col
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            SampleIcon(i, 13.dp, iconStyle, accent)
+                            BasicText(names[i % names.size], style = Dot.label.copy(color = Dot.Ink, fontSize = 4.5.sp), maxLines = 1)
+                        }
+                    }
                 }
             }
         }
@@ -925,8 +1080,7 @@ private fun LockPreview(kind: WallpaperKind, key: Any, lockThumbnail: suspend (W
     val outer = RoundedCornerShape(18.dp)
     Box(
         Modifier
-            .width(112.dp)
-            .aspectRatio(9f / 20f)
+            .fillMaxSize()
             .clip(outer)
             .border(2.dp, Dot.SurfaceHigh, outer)
             .background(Dot.Black)
@@ -948,8 +1102,7 @@ private fun NightClockPreview() {
     val outer = RoundedCornerShape(18.dp)
     Box(
         Modifier
-            .width(112.dp)
-            .aspectRatio(9f / 20f)
+            .fillMaxSize()
             .clip(outer)
             .border(2.dp, Dot.SurfaceHigh, outer)
             .background(Color.Black)
