@@ -15,7 +15,7 @@ No internet permission. No ads. No tracking. Everything stays on the phone.
 
 Get the latest **Dotline APK** from [Releases](https://github.com/rahmanfaizur/dotline/releases/latest). Android 10 or newer.
 
-1. Download `Dotline-1.1.0.apk` on your phone and open it. Allow "install unknown apps" for your browser or file app when Android asks (Play Protect may warn about an unknown app; that's normal outside the Play Store).
+1. Download `Dotline-1.1.1.apk` on your phone and open it. Allow "install unknown apps" for your browser or file app when Android asks (Play Protect may warn about an unknown app; that's normal outside the Play Store).
 2. Open Dotline and tap **Set** to make it your home screen. A short guide shows the basics.
 3. To go back: Settings → Apps → Default apps → Home screen, pick your old launcher, then uninstall Dotline.
 
