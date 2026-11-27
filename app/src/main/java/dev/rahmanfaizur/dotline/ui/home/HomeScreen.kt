@@ -323,6 +323,9 @@ fun HomeScreen(
                         // Tap flips between the level and the time left; long-press opens battery settings.
                         var showTime by rememberSaveable { mutableStateOf(false) }
                         val charging = state.battery?.charging == true
+                        // Only flips when there's a real estimate; if it goes away, back to the level.
+                        val canFlip = state.batteryLeftMs != null
+                        if (!canFlip && showTime) showTime = false
                         Tile(
                             Modifier
                                 .weight(1f)
@@ -330,10 +333,10 @@ fun HomeScreen(
                                 .clip(TileShape)
                                 .combinedClickable(
                                     enabled = !editing,
-                                    onClickLabel = if (showTime) "Show battery level" else "Show time left",
+                                    onClickLabel = if (showTime) "Show battery level" else if (canFlip) "Show time left" else null,
                                     onLongClickLabel = "Battery settings",
                                     onLongClick = { onTile(Shortcut.Battery) },
-                                ) { showTime = !showTime }
+                                ) { if (canFlip || showTime) showTime = !showTime }
                                 .testTag("batteryTile"),
                         ) {
                             val level = Dot.battery(state.battery?.percent, charging)
@@ -349,7 +352,6 @@ fun HomeScreen(
                                             when {
                                                 charging && left == 0L -> "Charged"
                                                 charging -> "Full in"
-                                                left == null -> "Measuring"
                                                 else -> "Time left"
                                             },
                                         )
