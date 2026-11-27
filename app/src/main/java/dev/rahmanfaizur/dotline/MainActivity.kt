@@ -519,6 +519,7 @@ private fun Launcher(
                     quick = resolve(quickKeys),
                     storage = storage,
                     actions = actions,
+                    battery = battery,
                     onOpenSettings = { settingsOpen = true },
                     readMemory = { app.system.memory() },
                     onTile = { app.shortcuts.open(it) },

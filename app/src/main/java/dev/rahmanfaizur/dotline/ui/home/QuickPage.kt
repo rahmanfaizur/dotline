@@ -1,5 +1,12 @@
 package dev.rahmanfaizur.dotline.ui.home
 
+import java.time.DayOfWeek
+import androidx.compose.foundation.border
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +73,7 @@ fun QuickPage(
     modifier: Modifier = Modifier,
     readMemory: () -> MemoryState? = { null },
     onTile: (Shortcut) -> Unit = {},
+    battery: BatteryState? = null,
 ) {
     // RAM updates every 2 s, only while this page is on screen and the launcher is in front.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -101,6 +109,8 @@ fun QuickPage(
                 Caption(memory?.let { "${Sizes.short(it.usedBytes)} of ${Sizes.short(it.totalBytes)}" } ?: "", color = Dot.faint)
             }
         }
+
+        if (battery != null) BatteryHealthTile(battery, Modifier.fillMaxWidth().tileTap("Battery settings") { onTile(Shortcut.Battery) })
 
         if (quick.isNotEmpty()) {
             Tile(Modifier.fillMaxWidth()) {
@@ -144,6 +154,38 @@ fun QuickPage(
     }
 }
 
+/** Temperature, health and charge cycles, as far as the phone reports them. */
+@Composable
+private fun BatteryHealthTile(battery: BatteryState, modifier: Modifier) {
+    Tile(modifier.testTag("batteryHealth")) {
+        Caption("Battery health")
+        Gap(10.dp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            val hot = (battery.tempC ?: 0) >= 40
+            Stat("Temp", battery.tempC?.let { "${it}C" } ?: "--", if (hot) Dot.battery(15, false) else Dot.ink)
+            Stat(
+                "Health",
+                when (battery.healthGood) { true -> "GOOD"; false -> "CHECK"; null -> "--" },
+                if (battery.healthGood == false) Dot.battery(15, false) else Dot.ink,
+            )
+            Stat("Cycles", battery.cycles?.toString() ?: "--", Dot.ink)
+        }
+    }
+}
+
+@Composable
+private fun Stat(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
+    Column {
+        Caption(label, color = Dot.faint)
+        Gap(4.dp)
+        BasicText(value, style = Dot.dots(24, color), maxLines = 1)
+    }
+}
+
+/**
+ * The month at a glance: today's date big, the days as dots (gone, today pulsing, to come; weekends
+ * softer), and a thin line of one dot per day showing how far through the month we are.
+ */
 @Composable
 private fun CalendarTile(modifier: Modifier) {
     val accent = LocalAccent.current
@@ -151,37 +193,74 @@ private fun CalendarTile(modifier: Modifier) {
     val zone = ZoneId.systemDefault()
     val today = remember(now / 60_000) { Instant.ofEpochMilli(now).atZone(zone).toLocalDate() }
     val locale = Locale.getDefault()
+    val weekFields = WeekFields.of(locale)
     val grid = remember(today, locale) {
-        MonthGrid.of(YearMonth.from(today), today, WeekFields.of(locale).firstDayOfWeek)
+        MonthGrid.of(YearMonth.from(today), today, weekFields.firstDayOfWeek)
     }
+    val pulse by rememberInfiniteTransition(label = "today").animateFloat(
+        initialValue = 0.25f, targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "todayPulse",
+    )
+    fun weekend(day: Int) = today.withDayOfMonth(day).dayOfWeek.let { it == DayOfWeek.SATURDAY || it == DayOfWeek.SUNDAY }
 
-    Tile(modifier) {
-        Caption("${today.month.getDisplayName(TextStyle.FULL, locale)} ${today.year}")
-        Gap(12.dp)
+    Tile(modifier.testTag("calendarTile")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicText(today.dayOfMonth.toString(), style = Dot.dots(64), modifier = Modifier.testTag("calendarDay"))
+            Gap(16.dp)
+            Column {
+                Caption(today.dayOfWeek.getDisplayName(TextStyle.FULL, locale), color = accent)
+                Gap(3.dp)
+                BasicText("${today.month.getDisplayName(TextStyle.FULL, locale)} ${today.year}", style = Dot.label.copy(fontSize = 15.sp))
+                Gap(3.dp)
+                val left = grid.days - today.dayOfMonth
+                val leftText = when (left) { 0 -> "Last day"; 1 -> "1 day left"; else -> "$left days left" }
+                Caption("$leftText · Week ${today.get(weekFields.weekOfWeekBasedYear())}", color = Dot.faint)
+            }
+        }
+        Gap(16.dp)
         val cells = List(grid.blanks) { 0 } + (1..grid.days).toList()
-        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                grid.weekdayInitials.forEach { c ->
-                    BasicText(c.toString(), style = Dot.caption.copy(fontSize = 10.sp, color = Dot.faint, textAlign = TextAlign.Center), modifier = Modifier.size(width = 20.dp, height = 14.dp))
+                grid.weekdayInitials.forEachIndexed { i, c ->
+                    val end = grid.weekStart.plus(i.toLong()).let { it == DayOfWeek.SATURDAY || it == DayOfWeek.SUNDAY }
+                    BasicText(
+                        c.toString(),
+                        style = Dot.caption.copy(fontSize = 10.sp, color = if (end) Dot.faint.copy(alpha = 0.3f) else Dot.faint, textAlign = TextAlign.Center),
+                        modifier = Modifier.size(width = 22.dp, height = 14.dp),
+                    )
                 }
             }
             cells.chunked(7).forEach { week ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     (0 until 7).forEach { i ->
                         val day = week.getOrNull(i) ?: 0
-                        Box(Modifier.size(width = 20.dp, height = 12.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(width = 22.dp, height = 16.dp), contentAlignment = Alignment.Center) {
                             if (day > 0) {
                                 val isToday = day == grid.today
-                                val color = when {
-                                    isToday -> accent
-                                    grid.today != null && day < grid.today -> Dot.muted
-                                    else -> Dot.off
+                                val past = grid.today != null && day < grid.today
+                                if (isToday) {
+                                    Box(Modifier.size(16.dp).border(1.5.dp, accent.copy(alpha = pulse), CircleShape))
+                                    Box(Modifier.size(9.dp).background(accent, CircleShape))
+                                } else {
+                                    val color = when {
+                                        past -> if (weekend(day)) Dot.muted.copy(alpha = 0.45f) else Dot.muted
+                                        weekend(day) -> Dot.off.copy(alpha = 0.12f)
+                                        else -> Dot.off
+                                    }
+                                    Box(Modifier.size(8.dp).background(color, CircleShape))
                                 }
-                                Box(Modifier.size(if (isToday) 11.dp else 8.dp).background(color, CircleShape))
                             }
                         }
                     }
                 }
+            }
+        }
+        Gap(14.dp)
+        // How far through the month: one tiny dot per day.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            (1..grid.days).forEach { d ->
+                val done = grid.today != null && d <= grid.today
+                Box(Modifier.size(if (d == grid.today) 5.dp else 3.dp).background(if (done) accent.copy(alpha = if (d == grid.today) 1f else 0.6f) else Dot.off, CircleShape))
             }
         }
     }
