@@ -15,7 +15,7 @@ No internet permission. No ads. No tracking. Everything stays on the phone.
 
 Get the latest **Dotline APK** from [Releases](https://github.com/rahmanfaizur/dotline/releases/latest). Android 10 or newer.
 
-1. Download `Dotline-1.0.0.apk` on your phone and open it. Allow "install unknown apps" for your browser or file app when Android asks (Play Protect may warn about an unknown app; that's normal outside the Play Store).
+1. Download `Dotline-1.1.0.apk` on your phone and open it. Allow "install unknown apps" for your browser or file app when Android asks (Play Protect may warn about an unknown app; that's normal outside the Play Store).
 2. Open Dotline and tap **Set** to make it your home screen. A short guide shows the basics.
 3. To go back: Settings → Apps → Default apps → Home screen, pick your old launcher, then uninstall Dotline.
 
@@ -29,11 +29,11 @@ Each release lists the APK's SHA-256 so you can check the file is the real one. 
 
 **Search.** Type a few letters and press Enter to open the top match. It understands prefixes, word starts ("maps" finds Google Maps), initials ("ps" finds Play Store) and accents. It also answers sums (`12*8`) and finds phone settings ("wifi", "battery"), all offline. When no app matches, it offers a web search: press Enter and your default browser searches with its own engine (Dotline itself still never goes online).
 
-**Quick page.** Swipe right for a dot calendar, free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Files, memory details).
+**Quick page.** Swipe right for a dot calendar (today's date in big dots, the month as dots, days left and the week number), battery health (temperature, health, charge cycles), free storage, live RAM use and four quick-open apps. Each tile opens its app (Calendar, Battery, Files, memory details).
 
-**Look.** Pick a wallpaper (your own photo, or one of five drawn by Dotline: Dot field, Halftone, Sunset, Glow, Horizon), a tile style (smoke glass, clear glass, tinted, outline, floating, solid), the text colour on tiles (auto, white or black), a font for all text (default, italic, italic serif, bold italic serif or bold serif; the dot clock stays dotted), the app list background, seven accent colours and round or rounded-square icons. Live previews show home and the app list as you change things.
+**Look.** Pick a wallpaper (your own photo, or one of five drawn by Dotline: Dot field, Halftone, Sunset, Glow, Horizon), a tile style (smoke glass, clear glass, tinted, outline, floating, solid), the text colour on tiles (auto, white or black), a font for all text (default, italic, italic serif, bold italic serif or bold serif; the dot clock stays dotted), the app list background, seven accent colours and round or rounded-square icons. The previews of home and the app list stay at the top while you pick, one group (tab) at a time, so every change shows straight away.
 
-**Now playing** (optional). Spotify, or any music app, on your home in one of three styles, with play/pause, skip, a progress bar you can drag and a speaker chip that opens Android's own speaker picker.
+**Now playing** (optional). Spotify, or any music app, on your home in one of three styles, with play/pause, skip, a progress bar you can drag and a speaker chip that opens Android's own speaker picker. Close the music app and the player stays with the last song: play picks it up again. After a restart it shows a "Play something" card that opens Spotify.
 
 <p align="center"><img src="docs/screenshots/players.jpg" width="420" alt="Cover glow, Dot wave and Vinyl player styles"></p>
 
@@ -47,7 +47,7 @@ Switch on **Show this player there too** and the same player (Cover glow) also s
 
 **Panel tiles.** "Next wallpaper" and "RAM" tiles for the phone's pull-down panel.
 
-**Your layout.** Pick 4, 6 or 8 home apps, a compact icon-only layout, Big / Stacked / Small clock styles, and folders (drop one app on another in edit mode). Icons can be the apps' own colours or one-colour "dot" icons in white or your accent colour (on Android 12 Dotline makes them itself). Swipe down on home for notifications. The battery turns orange at 20%, red at 10% and green while charging. Tile text checks the wallpaper right behind each tile, so it stays readable on any photo.
+**Your layout.** Pick 4, 6 or 8 home apps, a compact icon-only layout, Big / Stacked / Small clock styles, and folders (drop one app on another in edit mode). Icons can be the apps' own colours or one-colour "dot" icons in white or your accent colour (on Android 12 Dotline makes them itself). Swipe down on home for notifications. The battery turns orange at 20%, red at 10% and green while charging; tap it to see the time left (or until full), worked out on the phone. Tile text checks the wallpaper right behind each tile, so it stays readable on any photo.
 
 **First open.** A short welcome guide shows the gestures, search tricks and privacy promises (reopen it from Settings → About → How to use).
 
